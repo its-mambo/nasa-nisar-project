@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+h5py
+numpy
+Pillow
+scipy
+torch
+safetensors
+transformers
+peft
+accelerate

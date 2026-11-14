@@ -3,7 +3,6 @@
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import logging
-from io import BytesIO
 import json
 import math
 from pathlib import Path
@@ -12,9 +11,6 @@ import sys
 import tempfile
 import threading
 from time import perf_counter
-import traceback
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlsplit
 
 import numpy as np
 from PIL import Image
@@ -313,138 +309,6 @@ class Demo:
         return result
 
 
-class Handler(BaseHTTPRequestHandler):
-    def respond(self, code, data, content_type):
-        self.send_response(code)
-        self.send_header("Content-Type",content_type)
-        self.send_header("Content-Length",str(len(data)))
-        self.send_header("Cache-Control","no-store")
-        self.end_headers()
-        self.wfile.write(data)
-
-    def json(self,code,payload):
-        self.respond(code,json.dumps(payload,allow_nan=False).encode(),"application/json; charset=utf-8")
-
-    def do_GET(self):
-        url = urlsplit(self.path)
-        path = url.path
-        if path in ("/","/viewer"):
-            name = "viewer.html" if path == "/viewer" else "index.html"
-            self.respond(200,(ROOT/name).read_bytes(),"text/html; charset=utf-8")
-        elif path == "/zoom.js":
-            self.respond(200,(ROOT/"zoom.js").read_bytes(),"text/javascript; charset=utf-8")
-        elif path == "/pair":
-            self.json(200,{"pair":self.server.demo.info})
-        elif path in ("/decoder-inputs","/decoder-panel.png","/decoder-tokens.npz"):
-            demo = self.server.demo
-            query = parse_qs(url.query)
-            with demo.lock:
-                revision,trace = demo.result_revision,demo.decoder_trace
-            if revision is None or query.get("v") != [str(revision)]:
-                self.send_error(410,"This result is no longer available")
-            elif trace is None:
-                self.send_error(404,"No visual decoder inputs for this result")
-            elif path == "/decoder-inputs":
-                self.json(200,trace.manifest(revision))
-            elif path == "/decoder-tokens.npz":
-                if trace.tensor_archive is None:
-                    self.send_error(404,"Tensor capture is disabled")
-                else:
-                    self.respond(200,trace.tensor_archive,"application/octet-stream")
-            else:
-                try:
-                    i = int(query["i"][0])
-                    if not 0 <= i < len(trace.pngs):
-                        raise ValueError
-                except (KeyError,ValueError):
-                    self.send_error(400,"Invalid decoder panel")
-                    return
-                self.respond(200,trace.pngs[i],"image/png")
-        elif path == "/preview-tile.png":
-            q = parse_qs(url.query)
-            demo = self.server.demo
-            try:
-                with demo.lock:
-                    if demo.info is None or q.get("v") != [str(demo.info["revision"])]:
-                        self.send_error(410,"This preview is no longer available")
-                        return
-                    mode, step, col, row = (q[key][0] for key in ("mode", "step", "col", "row"))
-                    tile = demo.preview_tile(mode,int(step),int(col),int(row))
-                with BytesIO() as out:
-                    tile.save(out,format="PNG",compress_level=1)
-                    self.respond(200,out.getvalue(),"image/png")
-            except (KeyError, ValueError):
-                self.send_error(400,"Invalid preview tile")
-            except (BrokenPipeError, ConnectionResetError):
-                pass
-            except OSError:
-                self.send_error(500,"Could not read the HDF5 preview tile")
-        elif path in ("/preview.png","/preview_hh.png",*("/"+n for n in NAMES)):
-            try:
-                demo = self.server.demo
-                if path[1:] in NAMES:
-                    with demo.lock:
-                        revision = parse_qs(url.query).get("v",[None])[0]
-                        if demo.result_revision is None or revision != str(demo.result_revision):
-                            self.send_error(410,"This result is no longer available")
-                            return
-                        image = (demo.dir/path[1:]).open("rb")
-                else:
-                    image = (demo.dir/path[1:]).open("rb")
-                with image as f:
-                    self.send_response(200)
-                    self.send_header("Content-Type","image/png")
-                    self.send_header("Cache-Control","no-store")
-                    self.end_headers()
-                    shutil.copyfileobj(f,self.wfile)
-            except FileNotFoundError:
-                self.send_error(404)
-        else:
-            self.send_error(404)
-
-    def do_POST(self):
-        if self.headers.get("X-Nisar-Demo") != "1":
-            self.json(403,{"error":"Open the local demo page to submit requests."})
-            return
-        demo = self.server.demo
-        try:
-            with demo.lock:
-                if self.path in ("/upload/t0","/upload/t1"):
-                    date = self.path[-2:]
-                    size = int(self.headers.get("Content-Length","0"))
-                    if not 0 < size <= 8*1024**2:
-                        raise ValueError("Expected an upload chunk of at most 8 MiB. Refresh the demo page.")
-                    offset = int(self.headers.get("X-Upload-Offset","-1"))
-                    total = int(self.headers.get("X-Upload-Size","0"))
-                    data = self.rfile.read(size)
-                    if len(data) != size:
-                        raise ValueError(f"{date.upper()} upload disconnected at byte {offset+len(data):,}.")
-                    response = demo.upload(date,offset,total,data)
-                elif self.path == "/prepare":
-                    response = demo.prepare()
-                elif self.path == "/infer":
-                    n = int(self.headers.get("Content-Length","0"))
-                    if not 0<n<=2048:
-                        raise ValueError("Expected a small selection JSON body.")
-                    body = json.loads(self.rfile.read(n))
-                    if not isinstance(body,dict):
-                        raise ValueError("Expected a selection object.")
-                    response = demo.infer(body.get("box"),body.get("revision"))
-                else:
-                    self.json(404,{"error":"Unknown endpoint."})
-                    return
-            self.json(200,response)
-        except (BrokenPipeError,ConnectionResetError):
-            self.log_error("Client disconnected during %s",self.path)
-        except KeyError as e:
-            self.json(400,{"error":f"Missing HDF5 dataset or checkpoint field: {e}"})
-        except (ValueError,OSError) as e:
-            self.json(400,{"error":str(e)})
-        except Exception as e:
-            traceback.print_exc()
-            self.json(500,{"error":f"{type(e).__name__}: {e}"})
-
-
 WEIGHT_COMMANDS = {
     "pack": "Export one safetensors file from a .nisar archive or model directory.",
     "convert": "Convert a legacy .nisar archive to a safetensors model directory.",
@@ -483,6 +347,8 @@ def main():
         description=__doc__,
         epilog="Weight tools: inference.py pack, convert, or attach-adapter. Add --help for options.")
     p.add_argument("--port",type=int,default=8000)
+    p.add_argument("--host",default="127.0.0.1",
+                   help="Listen address; use 0.0.0.0 for a trusted LAN, or keep localhost with Tailscale Serve.")
     p.add_argument("--sar-device","--device",default="auto")
     p.add_argument("--qwen-device",default="auto",help="Auto uses a second CUDA GPU when available.")
     p.add_argument("--serial-vision",action="store_true",
@@ -574,13 +440,11 @@ def main():
                 p.exit(1,"Qwen generation failed; saved the measured report and images. See the log above.\n")
             print(result["interpretation"]["summary"],flush=True)
             return
-        with ThreadingHTTPServer(("127.0.0.1",args.port),Handler) as server:
-            server.demo=demo
-            print(f"Open http://127.0.0.1:{server.server_port} · Temporary uploads: {folder}",flush=True)
-            try:
-                server.serve_forever()
-            except KeyboardInterrupt:
-                pass
+        import uvicorn
+        from server import create_app
+        app = create_app(demo, ROOT, NAMES)
+        print(f"Open http://{args.host}:{args.port} · Temporary uploads: {folder}",flush=True)
+        uvicorn.run(app,host=args.host,port=args.port,workers=1)
 
 
 if __name__ == "__main__":
