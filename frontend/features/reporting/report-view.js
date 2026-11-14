@@ -91,8 +91,14 @@
     byId("reportEvidence").replaceChildren(...report.featured_evidence.map(id=>catalog.get(id)).filter(Boolean).map(item=>sourceChip(item)));
     byId("reportCharts").replaceChildren(coverageChart(data),sectorChart(data,options.onInspectSector));
     const interpretations=byId("reportInterpretation"); interpretations.replaceChildren();
-    const observations=node("section",undefined,"report-claim-card"); observations.append(node("span","AI observations · unverified","claim-badge ai"));
-    if (!report.ai.observations.length) observations.append(node("p",report.ai.status==="structured" ? "No specific visual observation was proposed." : "A usable structured AI interpretation is unavailable for this run. You can still inspect the measured evidence and suggested checks."));
+    const fallback = report.ai.status === "text_fallback" && typeof report.ai.text === "string";
+    const observations=node("section",undefined,`report-claim-card${fallback ? " report-text-fallback" : ""}`);
+    observations.append(node("span",fallback ? "Qwen explanation · unverified" : "AI observations · unverified","claim-badge ai"));
+    if (fallback) {
+      observations.append(node("h5","What the AI suggests"),node("p",report.ai.presentation_note,"report-small"));
+      // Model output remains text: no generated HTML, links, or validated source chips.
+      observations.append(node("p",report.ai.text,"report-model-text"));
+    } else if (!report.ai.observations.length) observations.append(node("p",report.ai.status==="structured" ? "No specific visual observation was proposed." : "A usable structured AI interpretation is unavailable for this run. You can still inspect the measured evidence and suggested checks."));
     for (const observation of report.ai.observations) {
       observations.append(node("p",observation.text),references(observation.evidence_refs,catalog));
     }
@@ -102,7 +108,8 @@
       possible.append(node("h5",hypothesis.title),node("p",hypothesis.explanation),node("h6","Supporting references"),references(hypothesis.evidence_refs,catalog),node("h6","Still unresolved"));
       const list=node("ul"); for(const uncertainty of hypothesis.uncertainties) list.append(node("li",uncertainty)); possible.append(list);
     } else possible.append(node("h5","Cause unresolved"),node("p","The available evidence does not establish a specific physical cause. Use an independent check before attributing the change."));
-    interpretations.append(observations,possible);
+    interpretations.append(observations);
+    if (!fallback) interpretations.append(possible);
     const checks=byId("reportChecks"); checks.replaceChildren();
     for(const check of report.ai.verification) {
       const card=node("section",undefined,"report-check-card"); card.append(node("h5",check.source),node("p",check.compare));

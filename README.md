@@ -68,8 +68,21 @@ An existing one-shot export from this exact pair/ROI can be imported with
 threshold, acquisition metadata, and image dimensions before publishing.
 Source checksums identify the supplied inputs; import provenance relies on the
 export having been produced by the documented inference command.
-Malformed structured AI output is labeled unavailable; measured model results
-remain usable. The cache never invents a successful interpretation.
+If Qwen produces usable text but misses the structured report format, the sample
+shows its original sentences as a clearly labeled, unverified plain-text AI
+explanation. It does not invent missing uncertainty fields or validated claims.
+The live workflow keeps its strict structured validator. Empty, broken JSON,
+or unusable responses still leave the measurements available.
+
+To update an existing sample's presentation without models or source files:
+
+```bash
+python cache_sample.py --refresh-report
+```
+
+This publishes a new checksummed revision, preserving the original model
+response, measurements, all image bytes, and the previous bundle. Restart a
+running sample server to load the new revision.
 
 Live model mode also offers the optional saved sample without replacing the
 currently loaded pair or live result:

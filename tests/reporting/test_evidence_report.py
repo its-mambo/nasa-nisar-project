@@ -108,6 +108,59 @@ class EvidenceReportTests(unittest.TestCase):
         result=self.result(); result["valid_pixels"]=result["changed_pixels"]=0
         self.assertIn("not enough jointly valid",build_report(result)["finding"]["text"])
 
+    def test_sample_fallback_preserves_model_words_without_validated_claims(self):
+        result = self.result()
+        payload = structured_claims(result)
+        del payload["hypothesis"]["uncertainties"]
+        raw = json.dumps(payload)
+        result["interpretation"]["summary"] = raw
+        # The live workflow still rejects the same incomplete structured response.
+        self.assertEqual(build_report(result)["ai"]["status"], "unavailable")
+        report = build_report(result, allow_text_fallback=True)
+        self.assertEqual(report["ai"]["status"], "text_fallback")
+        self.assertIn(payload["observations"][0]["text"], report["ai"]["text"])
+        self.assertIn(payload["hypothesis"]["explanation"], report["ai"]["text"])
+        self.assertIn("not consulted", report["ai"]["text"])
+        self.assertEqual(report["ai"]["observations"], [])
+        self.assertIsNone(report["ai"]["hypothesis"])
+        self.assertEqual(report["attribution_status"], "Cause unresolved")
+        self.assertEqual(result["interpretation"]["summary"], raw)
+        result["evidence_report"] = report
+        for format in ("md", "txt"):
+            export = render_export(result, format)
+            self.assertIn(payload["observations"][0]["text"], export)
+            self.assertIn("unverified original model text", export.lower())
+            self.assertNotIn("A usable structured AI interpretation is unavailable", export)
+
+    def test_sample_fallback_keeps_numeric_url_and_non_model_rejections(self):
+        result = self.result()
+        for text in ("A change of 90% is certain.", "Confirmed at https://example.com", "{broken json", ""):
+            result["interpretation"]["summary"] = text
+            self.assertEqual(build_report(result, allow_text_fallback=True)["ai"]["status"], "unavailable")
+        result["interpretation"] = {"source": "deterministic", "summary": "A template explanation."}
+        self.assertEqual(build_report(result, allow_text_fallback=True)["ai"]["status"], "unavailable")
+
+    def test_sample_fallback_does_not_show_hypotheses_with_flags_or_geometry_issues(self):
+        for warnings, flags in ((["Track mismatch"], 100), ([], 0)):
+            result = self.result()
+            payload = structured_claims(result)
+            del payload["hypothesis"]["uncertainties"]
+            result["interpretation"]["summary"] = json.dumps(payload)
+            result["warnings"], result["changed_pixels"] = warnings, flags
+            report = build_report(result, allow_text_fallback=True)
+            self.assertEqual(report["ai"]["status"], "text_fallback")
+            self.assertNotIn(payload["hypothesis"]["explanation"], report["ai"]["text"])
+            self.assertIsNone(report["ai"]["hypothesis"])
+
+    def test_plain_prose_fallback_and_markdown_escaping(self):
+        result = self.result()
+        raw = "The basin looks darker.\n\n<script>alert('claim')</script> # MODEL TEXT"
+        result["interpretation"]["summary"] = raw
+        report = build_report(result, allow_text_fallback=True)
+        self.assertEqual(report["ai"]["status"], "text_fallback")
+        result["evidence_report"] = report
+        self.assertIn(r"\<script\>", render_export(result, "md"))
+
     def test_markdown_and_text_preserve_values_labels_and_verification_scope(self):
         result=self.result(); result["evidence_report"]=build_report(result)
         markdown=render_export(result,"md"); plain=render_export(result,"txt")

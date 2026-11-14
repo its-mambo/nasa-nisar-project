@@ -12,7 +12,7 @@ from nisar.app.paths import FRONTEND_ROOT, PROJECT_ROOT
 from nisar.app.server import create_app
 from nisar.features.analysis.artifacts import NAMES
 from nisar.features.samples.store import CachedSample, FORMAT, IMAGE_FILES, SampleSession, digest, load_sample
-from nisar.features.samples.builder import publish
+from nisar.features.samples.builder import publish, refresh_report
 from tests.support import fixture_demo, request
 
 
@@ -38,6 +38,23 @@ def sample_fixture(root):
 
 
 class SampleStoreTests(unittest.TestCase):
+    def test_report_refresh_preserves_raw_run_images_and_original_bundle(self):
+        with tempfile.TemporaryDirectory() as root:
+            original = sample_fixture(root)
+            original_bytes = (original.directory / "result.json").read_bytes()
+            before = json.loads(original_bytes)
+            updated = refresh_report(root)
+            after = json.loads((updated.directory / "result.json").read_text())
+            self.assertNotEqual(updated.revision, original.revision)
+            self.assertEqual(updated.metadata["report_parent_revision"], original.revision)
+            self.assertEqual(after["evidence_report"]["ai"]["status"], "text_fallback")
+            self.assertEqual((original.directory / "result.json").read_bytes(), original_bytes)
+            for name in IMAGE_FILES:
+                self.assertEqual(digest(original.directory / name), digest(updated.directory / name))
+            before.pop("evidence_report")
+            after.pop("evidence_report")
+            self.assertEqual(before, after)
+
     def test_publish_validates_inputs_and_preserves_previous_cache_on_failure(self):
         with tempfile.TemporaryDirectory() as root, tempfile.TemporaryDirectory() as work:
             demo = fixture_demo(work)

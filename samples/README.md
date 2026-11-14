@@ -20,11 +20,17 @@ Playback streams files; it does not load that entire bundle into Python memory.
 A local startup check measured about 40 MiB for the Python server, excluding
 the browser, which decodes images separately.
 
-Qwen completed generation, but its response omitted fields required by the
-existing structured report schema. The included report marks structured AI
-interpretation unavailable. The original model response remains in
-`result.json` and the app's technical details. No physical-cause claim is
-validated by this cached run.
+Qwen completed generation but omitted the required hypothesis uncertainty
+field. The current sample displays its actual saved sentences as an unverified
+plain-text explanation, including its observation, possible explanation, and
+suggested checks. It does not fill in missing claims or pretend the structured
+output passed validation. Physical attribution remains unresolved.
+
+The original raw model response remains unchanged in `result.json` and the
+app's technical details. The original immutable bundle is retained for audit;
+`current.json` points at the revised presentation. Recreate this presentation
+with `python cache_sample.py --refresh-report`; no model run or HDF5 input is
+needed. Restart the sample server after changing the active revision.
 
 The manifest records acquisition metadata, input file sizes and SHA-256 hashes,
 generation time, ROI, threshold, detector identifier, and artifact checksums.

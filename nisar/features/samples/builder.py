@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -13,6 +14,47 @@ from nisar.app.paths import PROJECT_ROOT, SAMPLE_ROOT
 from nisar.features.analysis.artifacts import NAMES
 from nisar.features.samples.spec import ROI, SOURCE_FILES, THRESHOLD
 from nisar.features.samples.store import CachedSample, FORMAT, digest, load_sample
+from nisar.features.reporting.evidence_report import build_report
+
+
+def activate_bundle(staging, destination, sample):
+    files = {name: digest(staging / name) for name in (*NAMES, "sample-preview.png", "result.json")}
+    revision = "sample-" + hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()[:16]
+    manifest = dict(format=FORMAT, revision=revision, sample=sample, files=files)
+    (staging / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+    final = destination / revision
+    if final.exists():
+        for name, checksum in files.items():
+            if digest(final / name) != checksum:
+                raise ValueError(f"Existing bundle is damaged: {name}")
+    else:
+        staging.rename(final)
+    pointer = destination / ".current.json.tmp"
+    pointer.write_text(json.dumps({"revision": revision}) + "\n")
+    pointer.replace(destination / "current.json")
+    return CachedSample(destination)
+
+
+def refresh_report(destination):
+    """Reformat the actual saved model response without rerunning or changing inference."""
+    destination = Path(destination)
+    original = load_sample(destination)
+    if original is None:
+        raise ValueError("Generate a sample before refreshing its report.")
+    result = json.loads((original.directory / "result.json").read_text())
+    result["evidence_report"] = build_report(result, allow_text_fallback=True)
+    metadata = {**original.metadata, "report_updated_at": datetime.now(timezone.utc).isoformat(),
+                "report_parent_revision": original.revision,
+                "report_presentation": result["evidence_report"]["ai"]["status"]}
+    with tempfile.TemporaryDirectory(prefix=".building-", dir=destination) as work:
+        staging = Path(work)
+        for name in (*NAMES, "sample-preview.png"):
+            try:
+                os.link(original.directory / name, staging / name)
+            except OSError:
+                shutil.copyfile(original.directory / name, staging / name)
+        (staging / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
+        return activate_bundle(staging, destination, metadata)
 
 
 def publish(export, source_dir, destination):
@@ -24,6 +66,7 @@ def publish(export, source_dir, destination):
     result = json.loads((export / "report.json").read_text())
     if result["roi"]["t0_pixel_box"] != ROI or result["threshold"] != THRESHOLD:
         raise ValueError("Export must use the fixed sample ROI and threshold 0.10.")
+    result["evidence_report"] = build_report(result, allow_text_fallback=True)
     sources = {}
     for date, name in SOURCE_FILES.items():
         path = source_dir / name
@@ -39,7 +82,8 @@ def publish(export, source_dir, destination):
                   projected_area_km2=result["roi"]["projected_rectangle_km2"],
                   epsg=result["roi"]["epsg"],
                   detector_sha256=result["analysis_settings"].get("detector_sha256"),
-                  interpretation_source=result["interpretation"]["source"])
+                  interpretation_source=result["interpretation"]["source"],
+                  report_presentation=result["evidence_report"]["ai"]["status"])
     destination.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=".building-", dir=destination) as work:
         staging = Path(work)
@@ -53,17 +97,7 @@ def publish(export, source_dir, destination):
             preview.thumbnail((1200, 800))
             preview.save(staging / "sample-preview.png")
         (staging / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
-        files = {name: digest(staging / name) for name in (*NAMES, "sample-preview.png", "result.json")}
-        revision = "sample-" + hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()[:16]
-        manifest = dict(format=FORMAT, revision=revision, sample=sample, files=files)
-        (staging / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
-        final = destination / revision
-        if not final.exists():
-            staging.rename(final)
-        pointer = destination / ".current.json.tmp"
-        pointer.write_text(json.dumps({"revision": revision}) + "\n")
-        pointer.replace(destination / "current.json")
-    return CachedSample(destination)
+        return activate_bundle(staging, destination, sample)
 
 
 def main():
@@ -72,7 +106,14 @@ def main():
     parser.add_argument("--cache-dir", type=Path, default=SAMPLE_ROOT)
     parser.add_argument("--from-export", type=Path, help="Import a completed real one-shot run instead of rerunning models.")
     parser.add_argument("--refresh", action="store_true", help="Generate another run; keep the previous immutable bundle.")
+    parser.add_argument("--refresh-report", action="store_true", help="Reformat the saved Qwen output without running models or reading HDF5 files.")
     args, model_args = parser.parse_known_args()
+    if args.refresh_report:
+        if args.refresh or args.from_export or model_args:
+            parser.error("--refresh-report cannot be combined with generation/import options.")
+        sample = refresh_report(args.cache_dir)
+        print(f"Updated report: {sample.revision} ({sample.metadata['report_presentation']}). No models were run.")
+        return
     existing = load_sample(args.cache_dir)
     if existing and not args.refresh:
         print(f"Reusing {existing.revision}; use --refresh to run again.")

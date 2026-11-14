@@ -123,7 +123,47 @@ def parse_interpretation(raw,catalog):
     return dict(observations=normalized,hypothesis=hypothesis,verification=verification)
 
 
-def build_report(result):
+def plain_text_interpretation(raw, *, allow_hypothesis):
+    """Present existing model sentences without inventing missing structured claims."""
+    raw = raw.strip()
+    if raw.startswith("```") and raw.endswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)[:-3].strip()
+    if len(raw) > 8000:
+        raise ValueError("Overlong model response")
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        # Broken JSON is not a useful explanation. Genuine prose can be shown as text.
+        if raw.startswith(("{", "[")) or not allow_hypothesis:
+            return None
+        return _text(raw, 5000)
+    if not isinstance(parsed, dict):
+        return None
+    blocks = []
+    observations = parsed.get("observations")
+    if isinstance(observations, list):
+        for item in observations[:2]:
+            if isinstance(item, dict) and isinstance(item.get("text"), str):
+                blocks.append("What Qwen noticed\n" + _text(item["text"], 1000))
+    hypothesis = parsed.get("hypothesis")
+    if allow_hypothesis and isinstance(hypothesis, dict) and isinstance(hypothesis.get("explanation"), str):
+        title = _text(hypothesis["title"], 200) if hypothesis.get("title") else "Possible explanation"
+        blocks.append("Possible explanation · unverified\n" + title + "\n" + _text(hypothesis["explanation"], 1000))
+    checks = parsed.get("verification")
+    if isinstance(checks, list):
+        for item in checks[:2]:
+            if not isinstance(item, dict) or item.get("source_type") not in SOURCE_TYPES:
+                continue
+            lines = ["Suggested check · not consulted: " + SOURCE_TYPES[item["source_type"]]]
+            for key, label in (("compare", "Compare"), ("supports", "Would support"), ("weakens", "Would weaken")):
+                if item.get(key):
+                    lines.append(label + ": " + _text(item[key], 1000))
+            if len(lines) > 1:
+                blocks.append("\n".join(lines))
+    return "\n\n".join(blocks) if blocks else None
+
+
+def build_report(result, *, allow_text_fallback=False):
     evidence = evidence_catalog(result)
     summary = next((item for item in evidence if item["id"]=="detector:summary"),None)
     flags = result.get("changed_pixels")
@@ -138,6 +178,16 @@ def build_report(result):
             ai.update(parse_interpretation(raw,evidence),status="structured")
         except (ValueError,TypeError,KeyError) as exc:
             ai["format_note"] = str(exc)
+            # Explicit opt-in for saved samples; live claim validation stays strict.
+            if (allow_text_fallback and (result.get("interpretation") or {}).get("source") == "visual"
+                    and (isinstance(exc, json.JSONDecodeError) or str(exc) == "Unexpected interpretation fields")):
+                try:
+                    text = plain_text_interpretation(raw, allow_hypothesis=not result.get("warnings") and finite(flags) and flags > 0)
+                except (ValueError, TypeError):
+                    text = None
+                if text:
+                    ai.update(status="text_fallback", text=text,
+                              presentation_note="Qwen's original explanation is shown as plain text because it did not match the structured report format. It is unverified: evidence references and uncertainty fields have not passed validation. Use the measured evidence above to assess it; it does not establish a physical cause.")
     warning = bool(result.get("warnings"))
     if warning or not finite(flags) or flags <= 0:
         ai["hypothesis"] = None
@@ -156,7 +206,9 @@ def build_report(result):
         attribution_status="Cause unresolved" if ai["hypothesis"] is None else "Unconfirmed hypothesis",
         caution="Resolve acquisition comparability warnings before physical attribution." if warning else
                 "Radar-signal change and detector flags do not confirm an environmental cause.",
-        validation="AI output was checked for format and valid references, not independently validated scientifically.",
+        validation=("The model explanation is displayed as unverified plain text; structured claims were not validated. No external sources were consulted."
+                    if ai["status"] == "text_fallback" else
+                    "AI output was checked for format and valid references, not independently validated scientifically."),
         external_context=[],
         provenance=dict(decoder=(result.get("interpretation") or {}).get("decoder"),threshold=result.get("threshold"),
                         epsg=(result.get("roi") or {}).get("epsg")))
@@ -196,8 +248,12 @@ def render_export(result,format="md"):
     valid,flags = result.get("valid_pixels"),result.get("changed_pixels")
     if grid>0 and finite(valid) and finite(flags):
         paragraph(f"Model-grid composition: {flags:,} flagged; {valid-flags:,} valid without flags; {grid-valid:,} without paired model data. Unflagged is not confirmed stable.")
-    heading("AI observations · unverified")
-    if report["ai"]["observations"]:
+    heading("AI explanation · unverified original model text" if report["ai"]["status"] == "text_fallback" else "AI observations · unverified")
+    if report["ai"]["status"] == "text_fallback":
+        paragraph(report["ai"]["presentation_note"])
+        for block in report["ai"]["text"].split("\n\n"):
+            paragraph(block)
+    elif report["ai"]["observations"]:
         for observation in report["ai"]["observations"]:
             paragraph(observation["text"]+" Sources: "+", ".join(observation["evidence_refs"]))
     else:

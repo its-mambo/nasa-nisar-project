@@ -240,6 +240,8 @@
 }
 
 .results-nav button { border: 0; background: transparent; cursor: pointer; }
+.report-text-fallback { grid-column: 1 / -1; }
+.report-model-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; max-width: 85ch; }
 .results-v2 details { margin: 1rem 0; }
 .results-v2 summary { cursor: pointer; font-weight: 600; }
 .results-v2 pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 95ch; font-size: .8rem; background: #eef3f3; padding: .75rem; border-radius: 8px; }

@@ -27,6 +27,23 @@ legacy plain-text, or otherwise unusable model output does not remove the
 measured report. It stays available in the technical inspector; the main report
 clearly states that a structured interpretation was unavailable.
 
+## Saved-sample plain-text fallback
+
+The saved-sample builder explicitly opts into a presentation fallback when
+Qwen produces usable prose or misses JSON fields. `ai.status: text_fallback`
+contains `text` and `presentation_note`: original model sentences shown as
+unverified plain text, without fabricated uncertainty fields or validated
+evidence chips. `ai.observations` stays empty, `ai.hypothesis` stays null, and
+physical attribution remains unresolved. Numeric-measurement and URL checks
+still apply. Broken JSON and empty responses do not produce an explanation.
+Acquisition warnings or zero flags suppress the JSON hypothesis in this view.
+
+The browser uses text nodes, and Markdown/plain-text exports include the same
+explanation and disclosure. The strict live-run validator remains unchanged.
+`cache_sample.py --refresh-report` republishes the saved report with checksums
+and a parent revision; original model output, measurements, and images are
+preserved. This is a display fallback, not a new inference or model repair.
+
 ## Model evaluation before enabling chat
 
 The existing decoder adapter was used with a plain-text prompt. Changing the
