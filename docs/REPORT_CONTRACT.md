@@ -12,6 +12,8 @@ report. Its contract is `nisar_evidence_report_v1` in
 - **Hypothesis:** an unconfirmed physical explanation with explicit assumptions.
 - **Next check:** a recommended independent source and a result that would
   support or weaken the hypothesis. Recommended sources have not been consulted.
+- **External regional context:** a separately reviewed source snapshot, with
+  its dates, geographic scope, and limitations. It does not validate detector flags.
 
 The application supplies all numeric values and chart data. Qwen returns a JSON
 object with `observations`, one optional `hypothesis`, and `verification`.
@@ -70,6 +72,31 @@ question about existing measurements. Source-dependent questions should name
 the missing evidence rather than inventing an answer.
 
 ## Future web research / scraper
+
+The Karakalpakstan saved sample now includes a reviewed context record in
+`nisar/features/samples/karakalpakstan_context.json`, attached by `context.py`
+only when the saved sample's dates, ROI, and CRS match. This is a curated
+snapshot, not a live retrieval service. It adds `evidence_report.external_context`
+to playback responses and exports without rewriting the immutable inference
+files, raw Qwen output, measured values, or source checksums. The report's
+validation note distinguishes the original run from subsequent context review.
+
+Unchanged JPEG map excerpts are bundled in
+`frontend/features/results/reference/`; full source PDFs are linked at the publisher.
+The June map is Figure 1 on PDF page 2;
+the September map is Figure 2 on PDF page 4. The `pdfimages -j` extraction
+preserves embedded JPEG bytes. Sudochye values are from the September report's
+Table 3 (PDF page 5), with the June value cross-checked against the June report's
+Table 2 (PDF page 3). PDF and image SHA-256 values identify the reviewed snapshots.
+Dates are observation dates, not assumed publication dates. Hectares are divided
+by 100 for km². Signed day offsets are relative to the nearest radar acquisition.
+
+The published maps cover different regional extents and are not registered to
+the SAR grid. Blue areas denote the publisher's water classification, not the
+app's change mask. No patch-level optical validation has been completed, and
+recommended AI verification steps remain unconsulted. The context record is
+excluded from the AI's measured-evidence catalog and is never treated as a
+calibration or accuracy estimate.
 
 Chat and web retrieval are not enabled by this change. A retrieval adapter can
 later supply **external context** records containing a stable source ID, URL,

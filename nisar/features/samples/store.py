@@ -7,6 +7,7 @@ import re
 import threading
 
 from nisar.features.analysis.artifacts import NAMES
+from nisar.features.samples.context import regional_context
 
 REVISION = re.compile(r"sample-[0-9a-f]{16}")
 FORMAT = "nisar_cached_sample_v1"
@@ -51,6 +52,14 @@ class CachedSample:
         result["viewer_url"] = f"/change?v={self.revision}"
         # The portable cache contains the result and images, not live decoder tensors.
         result.pop("decoder_inputs_url", None)
+        context = regional_context(result)
+        if context and isinstance(result.get("evidence_report"), dict):
+            report = result["evidence_report"]
+            report["external_context"] = context
+            report["validation"] = report.get("validation", "").replace(
+                "No external sources were consulted.", "").strip() + (
+                " The original model run did not consult external sources. Regional context was reviewed "
+                "separately and does not validate detector accuracy or physical attribution.")
         return result
 
 

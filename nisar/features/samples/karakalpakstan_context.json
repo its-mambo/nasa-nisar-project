@@ -1,0 +1,46 @@
+{
+  "id": "sic-icwc-sudoche-2026-v1",
+  "kind": "external_context",
+  "status": "reviewed_regional_context",
+  "title": "Independent regional context: Sudochye open water",
+  "publisher": "Scientific-Information Center of the Interstate Commission for Water Coordination (SIC ICWC)",
+  "retrieved_at": "2026-11-14T22:40:33Z",
+  "geographic_scope": "Sudochye lake system (named Sudoche in the reports), Southern Aral Sea region, Karakalpakstan. Source monitoring polygons differ from the NISAR selection.",
+  "summary": "Published Landsat-based monitoring reports less open water at Sudochye between the June and September reference dates.",
+  "limitations": [
+    "Regional context does not validate individual detector flags, the flagged area, detection accuracy, or a physical cause.",
+    "Reference dates differ from the radar dates. Seasonal changes can occur within these gaps.",
+    "The reference maps have different extents and are not aligned to the SAR grid. Their blue areas are the publisher's water classification, not this app's change mask."
+  ],
+  "optical_verification_status": "Location-level comparison not completed",
+  "next_check": "Locate the same flagged and unflagged sites in optical images near both radar dates; assess clouds, boundary alignment, and water gain or loss before labeling detections.",
+  "observations": [
+    {"date": "2026-06-27", "open_water_ha": 6228, "source_id": "sic-icwc-september-2026", "source_locator": "Table 3, Sudoche row, PDF page 5; also June report Table 2, PDF page 3"},
+    {"date": "2026-08-30", "open_water_ha": 3245, "source_id": "sic-icwc-september-2026", "source_locator": "Table 3, Sudoche row, PDF page 5"},
+    {"date": "2026-09-23", "open_water_ha": 2242, "source_id": "sic-icwc-september-2026", "source_locator": "Table 3, Sudoche row, PDF page 5"}
+  ],
+  "sources": [
+    {
+      "id": "sic-icwc-june-2026",
+      "title": "Southern Aral Sea monitoring report, June 2026",
+      "url": "https://www.cawater-info.net/aral/data/pdf/south_prearalie_monitoring_june_2026_en.pdf",
+      "sha256": "3a61fb87fb04b80a350522c75836c54caf371de8bdf4473bf7b927cf58f14eca",
+      "figure": "Figure 1, PDF page 2",
+      "observation_date": "2026-06-27",
+      "sensor": "Landsat 9 (as identified by the report)",
+      "image_url": "/reference-june-2026.jpg",
+      "image_sha256": "757bf7bbe7aa21b3b2819abf7c094c6caa038e5bee1bbaee7f0227c9cc38acd9"
+    },
+    {
+      "id": "sic-icwc-september-2026",
+      "title": "Southern Aral Sea monitoring report, 23 September 2026",
+      "url": "https://www.cawater-info.net/aral/data/pdf/south_prearalie_monitoring_september_2026_en.pdf",
+      "sha256": "43b04baa03ddbd59aad1196d3a3cf72b1e85ee0fa1fc4eff576d9e0781a224d3",
+      "figure": "Figure 2, PDF page 4",
+      "observation_date": "2026-09-23",
+      "sensor": "Landsat 9 (as identified by the report)",
+      "image_url": "/reference-september-2026.jpg",
+      "image_sha256": "a361a67118c2c87a849a25814bb19434b830fbbf28367552b4c09c6ce3f474ed"
+    }
+  ]
+}

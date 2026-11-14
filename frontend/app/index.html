@@ -322,6 +322,7 @@
           <p id="investigationScope" class="investigation-scope"></p>
           <h4>What this does not establish</h4><p id="investigationLimit"></p>
           <h4>Next independent check · not yet done</h4><p id="investigationCheck"></p>
+          <button id="investigationContext" type="button" class="report-map-link" hidden>Read independent regional evidence ↗</button>
           <details id="investigationSourceDetails"><summary>Evidence used</summary><p id="investigationSource"></p></details>
           <div class="investigation-actions"><button id="investigationPrevious" type="button" class="results-outline">← Previous</button><button id="investigationRecenter" type="button" class="results-outline">Recenter stop</button><button id="investigationNext" type="button" class="results-primary">Next stop →</button><button id="investigationFinish" type="button" class="results-primary" hidden>Finish · overview ↗</button></div>
         </section>
@@ -335,6 +336,7 @@
         <section id="resultReadingGuide" class="results-card map-reading-guide"><h3>Reading this map</h3><p>Blue shows detector-flagged locations, with intensity based on the size of the HH signal change.</p><p>Compare Before and After with the same mask and display settings. Grayscale changes the base image; the mask stays blue.</p><p>Unmarked areas can include weaker detections or missing data. Check usable coverage below.</p></section>
       </div>
     </div>
+    <section id="resultExternalContext" class="results-card external-context" aria-label="Independent regional evidence" tabindex="-1" hidden></section>
         <section class="results-card results-pattern-section" aria-labelledby="resultPatternTitle">
           <div class="results-pattern-head"><h3 id="resultPatternTitle">How the radar signal changed</h3><b>MEASURED</b></div>
           <p class="evidence-intro">Before → After. Negative dB = weaker return; positive dB = stronger return.</p>
@@ -363,8 +365,9 @@
     <div class="results-report-body">
       <section class="report-finding" aria-labelledby="reportFindingTitle"><span class="report-eyebrow">1 · Main finding</span><h4 id="reportFindingTitle"></h4><p id="reportFindingNote"></p></section>
       <section class="report-evidence-section" aria-labelledby="reportEvidenceTitle"><h4 id="reportEvidenceTitle">2 · Evidence</h4><div id="reportEvidence" class="report-evidence-chips"></div><div id="reportCharts" class="report-charts"></div></section>
+      <section id="reportExternalContext" class="external-context" aria-label="Independent regional evidence" hidden></section>
       <section aria-labelledby="reportInterpretationTitle"><h4 id="reportInterpretationTitle">3 · Possible explanation</h4><div id="reportInterpretation" class="report-interpretation-grid"></div></section>
-      <section aria-labelledby="reportChecksTitle"><h4 id="reportChecksTitle">4 · Next checks</h4><p class="report-small">Suggested independent sources. They have not been retrieved or consulted.</p><div id="reportChecks" class="report-checks"></div></section>
+      <section aria-labelledby="reportChecksTitle"><h4 id="reportChecksTitle">4 · Next checks</h4><p class="report-small">Suggested location-level comparisons have not been completed. Reviewed regional sources are shown separately above.</p><div id="reportChecks" class="report-checks"></div></section>
       <details class="report-technical"><summary>Evidence references, model output &amp; technical details</summary><div id="reportReferences"></div><p id="reportValidation" class="report-small"></p><details id="decoderInputs" hidden><summary>Inspect decoder inputs</summary><div id="decoderBody"></div></details><details><summary>Full analysis data and original model output</summary><pre id="details"></pre></details></details>
     </div>
   </dialog>
@@ -373,6 +376,7 @@
 <script src="/zoom.js"></script>
 <script src="/explorer.js"></script>
 <script src="/results-evidence.js"></script>
+<script src="/external-context.js"></script>
 <script src="/report-view.js"></script>
 <script src="/investigation.js"></script>
 <script src="/results.js"></script>

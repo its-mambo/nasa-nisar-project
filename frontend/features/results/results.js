@@ -179,6 +179,7 @@ function renderResultsV2(data) {
   const geo = acq.t0 || {};
   setResultText("resultGeometry", [geo.orbitPassDirection, geo.lookDirection, geo.trackNumber == null ? null : `Track ${geo.trackNumber}`, geo.frameNumber == null ? null : `Frame ${geo.frameNumber}`].filter(Boolean).join(" · ") || "Acquisition geometry unavailable");
   NisarEvidence.render(data);
+  NisarExternalContext.render(resultsEl("resultExternalContext"), data);
   resultsEl("resultViewerLink").disabled = resultRevision() === null;
   showResultMode(resultMode);
 }

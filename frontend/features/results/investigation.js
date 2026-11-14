@@ -105,9 +105,14 @@
     el("investigationRecenter").addEventListener("click", () => select(active));
     el("investigationOverview").addEventListener("click", overview);
     el("investigationFinish").addEventListener("click", overview);
+    el("investigationContext").addEventListener("click", () => {
+      el("resultExternalContext").focus({preventScroll:true});
+      el("resultExternalContext").scrollIntoView({behavior:"smooth",block:"start"});
+    });
     return {render(data) {
       stops = buildStops(data); active = -1;
       el("investigation").hidden = !stops.length;
+      el("investigationContext").hidden = !(data.evidence_report?.external_context || []).length;
       el("investigationDetail").hidden = true;
       el("resultReadingGuide").hidden = false;
       el("investigationStops").replaceChildren(...stops.map((stop, i) => {

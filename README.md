@@ -38,7 +38,21 @@ read the saved measurements, limitations, and suggested independent checks.
 The guide preserves date, grayscale, and detector-overlay settings. Use
 **Full-area overview** to return to exploration. These are sector comparisons,
 not independently validated reference sites; the tour is limited to this pair
-and selection. The sample's inputs and selection
+and selection.
+
+**Independent regional context** presents SIC ICWC's published Sudochye
+open-water figures and dated Landsat reference maps (27 June and 23 September
+2026), alongside their gaps to the radar dates. Extracted reference maps and
+table values are bundled for offline playback; the full source reports are linked.
+Maps have different
+extents and are not aligned to the SAR grid; their blue water classification
+is the publisher's, not the detector overlay. A regional source does not
+validate individual radar flags or the flagged area. Location-level optical
+verification remains incomplete. Source IDs, dates, geographic scope, and
+checksums accompany the JSON, Markdown, and plain-text reports. Context is
+attached separately at playback; the immutable inference bundle is unchanged.
+
+The sample's inputs and selection
 cannot be edited; live upload, preparation, and inference endpoints are
 disabled in sample mode. Sample playback requires neither the weight bundle
 nor the source `.h5` files.
@@ -289,8 +303,9 @@ format and references, not scientific correctness. The adapted Qwen model
 still needs a real-pair evaluation of the new output contract.
 
 [REPORT_CONTRACT.md](docs/REPORT_CONTRACT.md) describes the schema and the integration
-boundary for future chat and web research. Those services are not enabled by
-this report change; suggested external sources are labeled as not consulted.
+boundary for future chat and web research. Live retrieval and chat are not enabled.
+The saved case study includes reviewed regional source snapshots; suggested
+location-level verification checks remain labeled as not completed.
 
 Run the regression checks without loading the weight bundle:
 

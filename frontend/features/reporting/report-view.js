@@ -84,6 +84,7 @@
     const report=data.evidence_report;
     if (!report) return;
     const byId=id=>document.getElementById(id);
+    NisarExternalContext.render(byId("reportExternalContext"),data,{compact:true});
     const catalog=new Map(report.evidence.map(item=>[item.id,item]));
     for (const o of report.ai.observations) catalog.set(o.id,{id:o.id,kind:"ai",label:o.text,display:"Unverified interpretation of the supplied images/evidence"});
     byId("reportFindingTitle").textContent=report.finding.text;

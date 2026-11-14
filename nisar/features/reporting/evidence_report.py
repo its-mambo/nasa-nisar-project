@@ -248,6 +248,22 @@ def render_export(result,format="md"):
     valid,flags = result.get("valid_pixels"),result.get("changed_pixels")
     if grid>0 and finite(valid) and finite(flags):
         paragraph(f"Model-grid composition: {flags:,} flagged; {valid-flags:,} valid without flags; {grid-valid:,} without paired model data. Unflagged is not confirmed stable.")
+    for context in report.get("external_context") or []:
+        heading(context["title"] + " · external regional context")
+        paragraph(context["summary"])
+        paragraph("Geographic scope: " + context["geographic_scope"])
+        paragraph("Context record: " + context["id"] + "; sources reviewed separately: " + context["retrieved_at"])
+        for row in context["observations"]:
+            gap = f"{abs(row['offset_days'])} days {'before' if row['offset_days'] < 0 else 'after'} {row['nearest_radar_label']} radar ({row['nearest_radar_date']})"
+            paragraph(f"{row['date']}: {row['open_water_ha']:,} ha = {row['open_water_ha']/100:.2f} km² of published open water; {gap}. Source: {row['source_id']}; {row['source_locator']}.")
+        for limitation in context["limitations"]:
+            paragraph("Limitation: " + limitation)
+        paragraph(context["optical_verification_status"] + ". " + context["next_check"])
+        for source in context["sources"]:
+            paragraph(context["publisher"] + ": " + source["title"])
+            paragraph("Official source: " + source["url"])
+            paragraph(f"Reference image: {source['sensor']}; observation {source['observation_date']}; {source['figure']}.")
+            paragraph("Source PDF SHA-256: " + source["sha256"] + "; extracted reference image SHA-256: " + source["image_sha256"])
     heading("AI explanation · unverified original model text" if report["ai"]["status"] == "text_fallback" else "AI observations · unverified")
     if report["ai"]["status"] == "text_fallback":
         paragraph(report["ai"]["presentation_note"])
@@ -290,5 +306,7 @@ def render_export(result,format="md"):
     for warning in result.get("warnings") or []:
         paragraph("Acquisition warning: "+warning)
     paragraph(report["validation"])
-    paragraph("No external web sources were retrieved for this report. Charts in the app use the counts and dB values listed above.")
+    paragraph("Regional source snapshots were reviewed separately from the original model run. They do not validate individual flags or environmental causes."
+              if report.get("external_context") else
+              "No external web sources were retrieved for this report. Charts in the app use the counts and dB values listed above.")
     return "\n".join(lines).rstrip()+"\n"
