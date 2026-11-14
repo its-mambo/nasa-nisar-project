@@ -22,7 +22,8 @@ from dual_model import (QwenModel, SarModel, attach_adapter, convert_weights,
                         open_weights, pack_single_weights)
 
 ROOT = Path(__file__).resolve().parent
-NAMES = ("t0.png", "t1.png", "change.png")
+NAMES = ("t0.png", "t1.png", "change.png",
+         "t0_hh.png", "t1_hh.png", "change_hh.png")
 PREVIEW_TILE = 512
 
 
@@ -291,13 +292,23 @@ class Demo:
         delta = np.abs(a1[0]-a0[0])
         blue[:,:,3] = np.rint(np.clip(np.where(selected,delta,0)/opts.max_delta_db,0,1)*255).astype(np.uint8)
         display = self.info["display_ranges_db"]
-        t0 = tone(a0,v0,display)
-        t1 = tone(a1,v1,display)
+        overlay = Image.fromarray(blue)
+        del blue
         self.result_revision = None
-        for name,img in zip(NAMES,(t0,t1,Image.alpha_composite(t0,Image.fromarray(blue))),strict=True):
+        def save_image(name,img):
             tmp = self.dir/(name+".tmp")
             img.save(tmp,format="PNG")
             tmp.replace(self.dir/name)
+        t0 = tone(a0,v0,display)
+        save_image("t0.png",t0)
+        save_image("change.png",Image.alpha_composite(t0,overlay))
+        del t0
+        save_image("t1.png",tone(a1,v1,display))
+        t0_hh = tone(a0,v0,display,grayscale=True)
+        save_image("t0_hh.png",t0_hh)
+        save_image("change_hh.png",Image.alpha_composite(t0_hh,overlay))
+        del t0_hh, overlay
+        save_image("t1_hh.png",tone(a1,v1,display,grayscale=True))
         self.counter += 1
         self.result_revision = self.counter
         self.decoder_trace = trace if trace is not None and trace.attempts else None
