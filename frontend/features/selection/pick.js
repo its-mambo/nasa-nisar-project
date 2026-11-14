@@ -422,8 +422,10 @@ updateSelection();
     if (r.ok) {
       const {pair} = await r.json();
       if (pair) await showPair(pair);
+      else if (config.sample?.available) NisarSample.show();
       else showUpload(true);
     }
+    if (!runId && location.hash !== "#results" && config.sample?.available) NisarSample.show();
   } catch (err) { status("Could not load the current pair: "+err.message); }
   finally { setBusy(false); }
 })();

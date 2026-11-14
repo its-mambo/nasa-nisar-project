@@ -24,11 +24,21 @@ python -m pip install -r requirements-sample.txt
 python launch.py --mode sample
 ```
 
-Open `http://127.0.0.1:8000`. **0 · Try a saved sample** is a highlighted,
-optional step on **Pick an area**. It shows the fixed filenames, ROI, threshold,
-and a preview. Click **Explore saved results** to use the same Results and
+Open `http://127.0.0.1:8000`. **Explore the case study** is the default entry
+when a saved sample is available, including in live model mode. It introduces
+the Karakalpakstan study landscape, acquisition dates, and a geographic locator.
+**Data and methods** expands the fixed filenames, ROI, threshold, and provenance.
+Click **Explore the case study** to use the same Results and
 Change viewer, including date switching, grayscale, overlays, zoom, and report
-downloads. The sample is labeled as a saved run. Its inputs and selection
+downloads. The sample is labeled as a saved run. The Results page also offers
+a three-stop guided investigation: stronger radar return in the
+middle-left sector, a mostly unflagged center sector, and an unresolved alert
+in the upper-right sector. Choose a stop to focus its gold sector outline and
+read the saved measurements, limitations, and suggested independent checks.
+The guide preserves date, grayscale, and detector-overlay settings. Use
+**Full-area overview** to return to exploration. These are sector comparisons,
+not independently validated reference sites; the tour is limited to this pair
+and selection. The sample's inputs and selection
 cannot be edited; live upload, preparation, and inference endpoints are
 disabled in sample mode. Sample playback requires neither the weight bundle
 nor the source `.h5` files.

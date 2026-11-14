@@ -20,7 +20,7 @@
 <main>
   <nav aria-label="Area selection steps">
     <ol class="steps" id="steps">
-      <li data-step="0" class="sample-step"><button id="sampleStep" type="button" aria-controls="samplePanel"><span>0</span>Try a saved sample <strong>Optional · No GPU</strong></button></li>
+      <li data-step="0" class="sample-step"><button id="sampleStep" type="button" aria-controls="samplePanel"><span aria-hidden="true">↗</span>Explore the case study <strong>No GPU needed</strong></button></li>
       <li data-step="1"><button id="loadStep" type="button"><span>1</span>Load GCOV files</button></li>
       <li data-step="2"><button id="areaStep" type="button" disabled><span>2</span>Pick an area</button></li>
     </ol>
@@ -35,21 +35,61 @@
   </div>
 
   <section id="samplePanel" class="sample-panel" aria-labelledby="sampleTitle" hidden>
-    <div class="sample-intro"><span class="sample-label">READY TO EXPLORE · NO MODEL LOADING</span><h2 id="sampleTitle" tabindex="-1">A real analysis, already saved</h2><p>Explore the results from these two radar images without running the models. The input files, area, and threshold stay fixed.</p></div>
+    <div class="sample-intro"><span class="sample-label">KARAKALPAKSTAN, UZBEKISTAN · ARAL SEA REGION</span><h2 id="sampleTitle" tabindex="-1">Explore seasonal change in Karakalpakstan’s wetlands</h2><p>Compare two NISAR radar observations of the same landscape. Explore flagged locations, inspect the measurements, and learn what still needs verification.</p></div>
     <div class="sample-grid">
-      <figure class="sample-preview"><img id="samplePreview" alt="Earlier radar image cropped to the fixed sample area" hidden><figcaption>Before · T0 · fixed analysis area <span>Preview only — selection is locked</span></figcaption></figure>
+      <figure class="sample-preview"><img id="samplePreview" alt="Earlier radar observation of the saved study area in Karakalpakstan" hidden><figcaption id="samplePreviewCaption">Before · earlier radar observation <span>Radar colour combines two signal measurements. It is not a natural-colour photograph or a water map.</span></figcaption></figure>
       <div class="sample-details">
+        <span class="sample-label">A SAVED ANALYSIS · READY TO EXPLORE</span>
+        <dl class="sample-dates"><div><dt>Before</dt><dd id="sampleBefore">—</dd></div><div><dt>After</dt><dd id="sampleAfter">—</dd></div></dl>
+        <p id="sampleInterval" class="sample-interval"></p>
+        <h3>What changed between these dates?</h3>
+        <p class="sample-question">Use the before-and-after views to investigate where the radar signal changed. Then inspect the detector flags and the measurements behind them.</p>
+        <button id="openSample" class="btn btn-primary" type="button" disabled>Explore the case study →</button>
+        <p class="sample-access">No file downloads, GPU, or model run needed to explore.</p>
+        <p class="sample-caution">Radar change is a clue. These detections have not been independently validated as environmental change.</p>
+        <p id="sampleStatus" role="status" class="threshold-help"></p>
+      </div>
+    </div>
+    <section class="sample-place" aria-labelledby="samplePlaceTitle">
+      <figure class="sample-locator">
+        <svg viewBox="0 0 420 205" role="img" aria-labelledby="sampleLocatorTitle sampleLocatorDesc">
+          <title id="sampleLocatorTitle">Geographic locator for the saved study area</title>
+          <desc id="sampleLocatorDesc">The study footprint spans approximately 57.5 to 59 degrees east and 43 to 43.7 degrees north. The published Sudochye lake system reference point lies inside it. Lake and administrative boundaries are not shown.</desc>
+          <rect x="0" y="0" width="420" height="205" rx="10" fill="#eef3ed"/>
+          <path d="M65 30V167M160 30V167M255 30V167M350 30V167M45 54H375M45 101H375M45 148H375" fill="none" stroke="#d0dcd5" stroke-dasharray="3 5"/>
+          <rect x="64" y="38" width="284" height="120" rx="2" fill="#d6e9e4" fill-opacity=".65" stroke="#0d5c63" stroke-width="2"/>
+          <text x="78" y="142" fill="#0a4a50" font-size="12" font-weight="600">Saved study footprint</text>
+          <circle cx="261" cy="69" r="11" fill="#0d5c63" fill-opacity=".12"/><circle cx="261" cy="69" r="4" fill="#0d5c63"/>
+          <text x="128" y="62" fill="#14212b" font-size="12" font-weight="600">Sudochye lake system</text>
+          <text x="128" y="79" fill="#5d6b74" font-size="10">Published reference point</text>
+          <path d="M383 55V29M378 35L383 29L388 35" fill="none" stroke="#0d5c63" stroke-width="1.5"/><text x="379" y="22" fill="#0a4a50" font-size="10">N</text>
+          <g fill="#5d6b74" font-size="10"><text x="64" y="184">57.5°E</text><text x="320" y="184">59.0°E</text><text x="10" y="43">43.7°N</text><text x="10" y="159">43.0°N</text></g>
+        </svg>
+        <figcaption>Location reference only. Wetland boundaries are not shown.</figcaption>
+      </figure>
+      <div class="sample-place-copy">
+        <span class="sample-label">WHERE YOU’RE EXPLORING</span>
+        <h3 id="samplePlaceTitle">Wetlands in the Aral Sea region</h3>
+        <p>The saved study footprint includes the published location of the Sudochye lake system, a wetland of international importance in Karakalpakstan. The selection covers a wider landscape; it is not the wetland’s official boundary.</p>
+        <p>For an environmental analyst, this is a starting point for choosing locations to verify. For a curious explorer, it is a way to compare the same landscape across a season.</p>
+        <div class="sample-place-links"><a href="https://rsis.ramsar.org/ris/2522" target="_blank" rel="noopener">About Sudochye · Ramsar ↗</a><a href="https://www.openstreetmap.org/?mlat=43.3305&amp;mlon=58.2239#map=9/43.3305/58.2239" target="_blank" rel="noopener">Open regional map ↗</a></div>
+      </div>
+    </section>
+    <details class="sample-methods">
+      <summary>Data and methods <span>Source files, fixed selection, and analysis settings</span></summary>
+      <div class="sample-methods-body">
+        <p>This is playback of a completed model run. The two acquisition dates, selected area, and threshold are fixed. Switching dates in the viewer keeps the same geographic area.</p>
         <h3>Source images</h3>
         <dl class="sample-files"><div><dt>Before · T0</dt><dd id="sampleT0">Loading sample details…</dd></div><div><dt>After · T1</dt><dd id="sampleT1">—</dd></div></dl>
         <h3>Fixed selection <span class="pill">Read-only</span></h3>
         <dl class="sample-coordinates"><div><dt>Left (x₀)</dt><dd id="sampleLeft">—</dd></div><div><dt>Top (y₀)</dt><dd id="sampleTop">—</dd></div><div><dt>Right (x₁)</dt><dd id="sampleRight">—</dd></div><div><dt>Bottom (y₁)</dt><dd id="sampleBottom">—</dd></div></dl>
         <dl class="sample-measures"><div><dt>Native size</dt><dd id="sampleSize">—</dd></div><div><dt>Projected area</dt><dd id="sampleArea">—</dd></div><div><dt>Threshold</dt><dd id="sampleThreshold">—</dd></div><div><dt>Map reference</dt><dd id="sampleCrs">—</dd></div></dl>
         <p class="threshold-help">Coordinates use the earlier image’s pixel grid. Right and bottom edges are exclusive. Radar change does not confirm a physical cause.</p>
-        <button id="openSample" class="btn btn-primary" type="button" disabled>Explore saved results →</button>
-        <p id="sampleStatus" role="status" class="threshold-help"></p>
+        <p id="sampleSavedAt" class="threshold-help"></p>
       </div>
-    </div>
+    </details>
     <p id="sampleModeNote" class="sample-mode-note"></p>
+    <div class="sample-own"><button id="sampleAnalyzeOwn" type="button" class="btn" hidden>Analyze your own files →</button></div>
   </section>
   <div class="layout loading-pair" id="pickLayout">
     <div class="main-col">
@@ -246,6 +286,11 @@
     <div class="results-hero"><h2>Change detection results</h2><span class="results-badge">✓ Analysis complete</span><span class="results-sample">PAIRED IMAGE ANALYSIS</span></div>
     <p id="resultSampleNotice" class="sample-mode-note" hidden></p>
     <div class="results-meta"><span>NISAR L2 GCOV</span><span id="resultDates"></span><span id="resultDays"></span><button type="button" class="crs-help" id="resultEpsg" aria-haspopup="dialog"></button></div>
+    <section id="investigation" class="investigation" aria-labelledby="investigationHeading" hidden>
+      <div class="investigation-header"><div><span class="report-eyebrow">EXPLORE THE SAVED CASE STUDY</span><h3 id="investigationHeading">Three stops. One investigation.</h3><p>Choose a stop to focus the map. Compare dates, inspect the evidence, and see what remains unresolved.</p></div><button id="investigationOverview" class="results-outline" type="button">Full-area overview</button></div>
+      <div id="investigationStops" class="investigation-stops" role="group" aria-label="Guided investigation stops"></div>
+      <p class="investigation-note">Stops use image sectors, not named individual lakes. The gold outline marks the sector being discussed; blue remains the detector layer. Your date, colour, and overlay choices stay independent.</p>
+    </section>
     <div class="results-grid">
       <div class="results-map-card">
         <canvas id="resultMap" role="img" aria-label="Detector change overlay"></canvas>
@@ -267,6 +312,19 @@
         <div class="results-map-foot"><button id="resultViewerLink" type="button" disabled>Open change viewer ↗</button><span id="resultMapScale"></span></div>
       </div>
       <div class="results-sidebar">
+        <section id="investigationDetail" class="results-card investigation-detail" aria-labelledby="investigationTitle" hidden>
+          <p id="investigationStep" class="report-eyebrow" role="status" aria-live="polite"></p>
+          <h3 id="investigationTitle" tabindex="-1"></h3>
+          <span id="investigationBadge" class="investigation-badge"></span>
+          <p id="investigationIntro"></p>
+          <h4>Try this on the map</h4><p id="investigationLook"></p>
+          <dl id="investigationMetrics" class="investigation-metrics"></dl>
+          <p id="investigationScope" class="investigation-scope"></p>
+          <h4>What this does not establish</h4><p id="investigationLimit"></p>
+          <h4>Next independent check · not yet done</h4><p id="investigationCheck"></p>
+          <details id="investigationSourceDetails"><summary>Evidence used</summary><p id="investigationSource"></p></details>
+          <div class="investigation-actions"><button id="investigationPrevious" type="button" class="results-outline">← Previous</button><button id="investigationRecenter" type="button" class="results-outline">Recenter stop</button><button id="investigationNext" type="button" class="results-primary">Next stop →</button><button id="investigationFinish" type="button" class="results-primary" hidden>Finish · overview ↗</button></div>
+        </section>
         <section class="results-card" aria-labelledby="resultSummaryTitle">
           <h3 id="resultSummaryTitle">Detected change summary</h3>
           <div class="results-kpi"><strong id="resultFlaggedArea">—</strong><span id="resultFlaggedPct"></span></div>
@@ -274,7 +332,7 @@
           <div class="results-split-labels"><span id="resultModelPct"></span><span id="resultUnflaggedPct"></span></div><div class="results-split"><span id="resultSplitFill"></span></div>
           <p class="results-caveat">Model score is experimental, not a calibrated probability.</p>
         </section>
-        <section class="results-card map-reading-guide"><h3>Reading this map</h3><p>Blue shows detector-flagged locations, with intensity based on the size of the HH signal change.</p><p>Compare Before and After with the same mask and display settings. Grayscale changes the base image; the mask stays blue.</p><p>Unmarked areas can include weaker detections or missing data. Check usable coverage below.</p></section>
+        <section id="resultReadingGuide" class="results-card map-reading-guide"><h3>Reading this map</h3><p>Blue shows detector-flagged locations, with intensity based on the size of the HH signal change.</p><p>Compare Before and After with the same mask and display settings. Grayscale changes the base image; the mask stays blue.</p><p>Unmarked areas can include weaker detections or missing data. Check usable coverage below.</p></section>
       </div>
     </div>
         <section class="results-card results-pattern-section" aria-labelledby="resultPatternTitle">
@@ -316,6 +374,7 @@
 <script src="/explorer.js"></script>
 <script src="/results-evidence.js"></script>
 <script src="/report-view.js"></script>
+<script src="/investigation.js"></script>
 <script src="/results.js"></script>
 <script src="/sample.js"></script>
 <script src="/pick.js"></script>

@@ -5,6 +5,34 @@ const {createPreferences,crsName,captureViewport,restoreViewport} = require("../
 const {metrics,sectorCsv} = require("../../frontend/features/results/results-evidence.js");
 const {composition} = require("../../frontend/features/reporting/report-view.js");
 const {isResultRevision} = require("../../frontend/shared/map/explorer.js");
+const {buildStops,sectorBox} = require("../../frontend/features/results/investigation.js");
+const fs = require("node:fs");
+const path = require("node:path");
+
+test("Guided stops retain the real sample's counts, signed measurements, and evidence scope", () => {
+  const root = path.join(__dirname,"../../samples/judges");
+  const {revision} = JSON.parse(fs.readFileSync(path.join(root,"current.json")));
+  const data = JSON.parse(fs.readFileSync(path.join(root,revision,"result.json")));
+  data.sample = {revision};
+  const stops = buildStops(data);
+  assert.deepEqual(stops.map(s=>s.zone),["middle left","center","upper right"]);
+  assert.deepEqual(stops[0].metrics.map(m=>m.value),["+4.71 dB","+0.69 dB","+0.84 dB"]);
+  assert.deepEqual(stops[1].metrics.map(m=>m.value),["1.2%","2,376,147","29,862"]);
+  assert.match(stops[1].limit,/Unflagged does not mean unchanged/);
+  assert.equal(stops[2].metrics[0].value,"-2.95 dB");
+  assert.match(stops[2].limit,/not been established as a true or false/);
+  assert.match(stops[0].scope,/entire Middle Left sector/);
+  assert.deepEqual(buildStops({...data,sample:undefined}),[]);
+  assert.deepEqual(buildStops({...data,roi:{...data.roi,t0_pixel_box:[0,0,10,10]}}),[]);
+  assert.deepEqual(buildStops({...data,paired_sector_deltas:[]}),[]);
+});
+
+test("Tour map focus uses the same normalized sectors across image sizes", () => {
+  assert.deepEqual(sectorBox("middle left"),[0,1/3,1/3,2/3]);
+  assert.deepEqual(sectorBox("center"),[1/3,1/3,2/3,2/3]);
+  assert.deepEqual(sectorBox("upper right"),[2/3,0,1,1/3]);
+  assert.equal(sectorBox("unknown"),null);
+});
 
 test("Live and immutable sample revisions are accepted without allowing arbitrary paths", () => {
   for (const revision of ["12", "sample-0123456789abcdef"]) assert.equal(isResultRevision(revision), true);

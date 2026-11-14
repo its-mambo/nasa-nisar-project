@@ -10,6 +10,7 @@ let resultGrayscale = false;
 let resultLayers = new Map();
 let resultLoadId = 0;
 let resultData = null;
+let investigationFocus = null, investigationFocusPending = false;
 const resultViewport = new RasterViewport(resultCanvas, ctx => {
   if (!resultImage) return;
   const [x, y, right, bottom] = resultViewport.visible();
@@ -18,9 +19,54 @@ const resultViewport = new RasterViewport(resultCanvas, ctx => {
     if (resultShowChange && resultOverlay) {
       ctx.drawImage(resultOverlay, x, y, right - x, bottom - y, x, y, right - x, bottom - y);
     }
+    if (investigationFocus) {
+      const box = NisarInvestigation.sectorBox(investigationFocus.zone);
+      if (box) {
+        const [a,b,c,d] = box.map((value, i) => Math.floor(value * (i % 2 ? resultViewport.height : resultViewport.width)));
+        const unit = 1 / resultViewport.scale;
+        ctx.save(); ctx.strokeStyle = "#ffc81e"; ctx.lineWidth = 2 * unit;
+        ctx.setLineDash([8 * unit, 5 * unit]); ctx.strokeRect(a,b,c-a,d-b); ctx.setLineDash([]);
+        const label = `Stop ${investigationFocus.number} · ${investigationFocus.zone} sector`;
+        ctx.font = `600 ${12 * unit}px system-ui, sans-serif`;
+        const labelWidth = ctx.measureText(label).width + 16 * unit;
+        const labelX = Math.max(a, Math.min(c - labelWidth, right - labelWidth - 8 * unit));
+        ctx.fillStyle = "#ffc81e"; ctx.fillRect(labelX,d - 24 * unit,labelWidth,24 * unit);
+        ctx.fillStyle = "#14212b"; ctx.fillText(label,labelX + 8 * unit,d - 8 * unit);
+        ctx.restore();
+      }
+    }
   }
 });
 resultViewport.enableDrag(0);
+function focusInvestigationStop() {
+  if (!investigationFocus || !resultViewport.width || !resultViewport.w) return;
+  const box = NisarInvestigation.sectorBox(investigationFocus.zone);
+  if (!box) return;
+  const [x,y,right,bottom] = box;
+  resultViewport.scale = Math.max(resultViewport.fitScale, Math.min(resultViewport.maxScale(),
+    resultViewport.w / ((right-x) * resultViewport.width) * .82,
+    resultViewport.h / ((bottom-y) * resultViewport.height) * .7));
+  resultViewport.x = resultViewport.w / 2 - (x+right) / 2 * resultViewport.width * resultViewport.scale;
+  resultViewport.y = resultViewport.h / 2 - (y+bottom) / 2 * resultViewport.height * resultViewport.scale;
+  resultViewport.clamp(); resultViewport.invalidate(); investigationFocusPending = false;
+  saveResultPreferences({viewport:Nisar.captureViewport(resultViewport)});
+}
+const investigation = NisarInvestigation.create({
+  onSelect(stop) {
+    investigationFocus = stop; investigationFocusPending = true;
+    // Allow the newly visible guide panel to establish the map dimensions first.
+    requestAnimationFrame(() => {
+      if (investigationFocus !== stop) return;
+      resultViewport.size(); focusInvestigationStop();
+      resultCanvas.scrollIntoView({behavior:"smooth",block:"start"});
+    });
+  },
+  onOverview() {
+    investigationFocus = null; investigationFocusPending = false;
+    resultViewport.reset(); saveResultPreferences({viewport:Nisar.captureViewport(resultViewport)});
+    resultsEl("investigation").scrollIntoView({behavior:"smooth",block:"start"});
+  }
+});
 
 const resultNumber = value => Number(value || 0).toLocaleString("en-US");
 const resultArea = value => Number(value || 0).toLocaleString("en-US", {maximumFractionDigits: 2, minimumFractionDigits: 2});
@@ -68,6 +114,7 @@ async function showResultMode(mode) {
       resultViewport.setRaster(img.naturalWidth, img.naturalHeight);
       Nisar.restoreViewport(resultViewport,Nisar.view.read(resultRevision()).viewport);
     } else resultViewport.invalidate();
+    if (investigationFocusPending) focusInvestigationStop();
     resultsEl("resultMapStatus").hidden = true;
     const changeName = mode === "t0" ? "change" : "change_t1";
     const download = showMask ? `${changeName}${grayscale ? "_hh" : ""}.png` : file;
@@ -84,17 +131,15 @@ async function showResultMode(mode) {
 
 function resultZoom(factor) {
   if (!resultViewport.width) return;
-  resultViewport.scale = Math.max(resultViewport.fitScale, Math.min(8, resultViewport.scale * factor));
-  resultViewport.x = (resultViewport.w - resultViewport.width * resultViewport.scale) / 2;
-  resultViewport.y = (resultViewport.h - resultViewport.height * resultViewport.scale) / 2;
-  resultViewport.clamp();
-  resultViewport.invalidate();
+  resultViewport.zoomBy(factor);
+  saveResultPreferences({viewport:Nisar.captureViewport(resultViewport)});
 }
 
 function renderResultsV2(data) {
   const newResult = resultData !== data;
   resultData = data;
   if (newResult) {
+    investigationFocus = null; investigationFocusPending = false;
     resultLayers = new Map();
     resultImage = resultOverlay = null;
     resultViewport.setRaster(0,0);
@@ -102,6 +147,7 @@ function renderResultsV2(data) {
     resultMode = saved.date || "t0";
     resultShowChange = !!data.images?.["overlay.png"] && (saved.showChange ?? true);
     resultGrayscale = !!data.images?.["t0_hh.png"] && !!data.images?.["t1_hh.png"] && (saved.grayscale ?? false);
+    investigation.render(data);
   }
   resultsEl("resultShowChange").disabled = !data.images?.["overlay.png"];
   resultsEl("resultGrayscale").disabled = !(data.images?.["t0_hh.png"] && data.images?.["t1_hh.png"]);

@@ -19,6 +19,7 @@ STATIC_FILES = {
     "change.js": ("features/change_viewer/change.js", "text/javascript"),
     "change.css": ("features/change_viewer/change.css", "text/css"),
     "results.js": ("features/results/results.js", "text/javascript"),
+    "investigation.js": ("features/results/investigation.js", "text/javascript"),
     "results.css": ("features/results/results.css", "text/css"),
     "results-evidence.js": ("features/results/results-evidence.js", "text/javascript"),
     "report-view.js": ("features/reporting/report-view.js", "text/javascript"),
