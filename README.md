@@ -1,9 +1,42 @@
 # NISAR SAR Change Explorer
 
-The browser UI has separate Pick and Results files (`pick.css`/`pick.js` and
-`results.css`/`results.js`). `inference.py` loads the SAR and Qwen models once,
-then serves the UI and analysis API with FastAPI. Run one server process: the
-loaded models and current pair are shared in memory.
+The code is organized by feature. Python features live in `nisar/features/`,
+and browser features live in `frontend/features/`. The application loads the
+SAR and Qwen models once, then serves the UI and analysis API with FastAPI.
+Run one server process: the loaded models and current pair are shared in memory.
+
+## Project structure
+
+```text
+nisar/
+  app/                    # CLI, HTTP API, browser routes, resource paths
+  features/
+    imagery/              # GCOV grids, geographic alignment, preview rendering
+    analysis/             # Pair/selection workflow and progress estimates
+    reporting/            # Measurements, evidence, AI claim contract, exports
+  infrastructure/models/  # SAR/Qwen runtimes and weight conversion
+frontend/
+  app/                    # Main HTML shell joining selection and results
+  features/
+    selection/            # Upload, dates, area selection, run setup/progress
+    change_viewer/        # Before/after comparison and full-image popup
+    results/              # Result map, scientific details, CSV/JSON exports
+    reporting/            # Evidence and interpretation presentation
+  shared/                 # Map viewport/state, navigation styles, icons
+tests/
+  analysis/               # Detector, selection, progress, and job API checks
+  reporting/              # Evidence contract and report export checks
+  app/                    # Browser resource integration checks
+  frontend/               # JavaScript state, measurement, and export checks
+  support.py              # Shared synthetic data, model stubs, ASGI harness
+docs/                     # Architecture guide and report contract
+models/                   # Local model weights (ignored by Git)
+inference.py              # Backward-compatible command entry point
+```
+
+See [the architecture guide](docs/ARCHITECTURE.md) for feature ownership,
+dependencies, and where to add code. Browser URLs remain stable; the explicit
+resource map in `nisar/app/web.py` resolves them to their feature folders.
 
 ## Who this is for
 
@@ -36,8 +69,8 @@ file size. CPU inference can take a long time; a 15 GiB RAM machine may run out
 of memory while loading or analyzing. A CPU-only browser can instead connect
 to a teammate's GPU-hosted server.
 
-Keep the weight bundle and GCOV files on the host. To start with a prepared
-pair, run:
+Run commands from the repository root. Keep the weight bundle in `models/`
+and GCOV files on the host. To start with a prepared pair, run:
 
 ```bash
 python inference.py --weights /path/to/model.safetensors \
@@ -53,7 +86,7 @@ space. The server prints its URL after both models load.
 For a CPU-only local check, use a small selection after the server starts:
 
 ```bash
-python inference.py --weights ./model.safetensors \
+python inference.py --weights ./models/model.safetensors \
   --sar-device cpu --qwen-device cpu --batch-size 1 \
   --decoder-overview-size 256 --port 8000
 ```
@@ -148,13 +181,13 @@ unavailable. Raw model output remains in the technical inspector. This checks
 format and references, not scientific correctness. The adapted Qwen model
 still needs a real-pair evaluation of the new output contract.
 
-[REPORT_CONTRACT.md](REPORT_CONTRACT.md) describes the schema and the integration
+[REPORT_CONTRACT.md](docs/REPORT_CONTRACT.md) describes the schema and the integration
 boundary for future chat and web research. Those services are not enabled by
 this report change; suggested external sources are labeled as not consulted.
 
 Run the regression checks without loading the weight bundle:
 
 ```bash
-python -m unittest -v test_analysis test_evidence_report
-node test_explorer.js
+python -m unittest discover -s tests -t . -v
+node tests/frontend/test_explorer.js
 ```
