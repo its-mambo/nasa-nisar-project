@@ -3,6 +3,7 @@ const $ = id => document.getElementById(id);
 const preview = $("preview");
 const fields = ["left","top","right","bottom"].map($);
 let state, photo, start, pointer, busy = false, mode = "rg", previewDate = "t0";
+let modelEnabled = true;
 let requestedMode = "rg", requestedDate = "t0", previewRequest = 0;
 const previews = new Map();
 const tiles = new Map();
@@ -15,15 +16,16 @@ function setStep(n) {
   for (const li of $("steps").children) {
     const s = Number(li.dataset.step);
     li.classList.toggle("active", s === n);
-    li.classList.toggle("done", s < n);
+    li.classList.toggle("done", s > 0 && s < n);
     if (s === n) li.querySelector("button").setAttribute("aria-current", "step");
     else li.querySelector("button").removeAttribute("aria-current");
   }
 }
 function setBusy(value) {
   busy = value;
-  for (const el of document.querySelectorAll("form input,form button,#newPair,#loadStep,#areaStep")) el.disabled = value;
-  $("areaStep").disabled = value || !state;
+  for (const el of document.querySelectorAll("form input,form button,#newPair,#loadStep,#areaStep")) el.disabled = value || !modelEnabled;
+  $("areaStep").disabled = value || !state || !modelEnabled;
+  $("sampleStep").disabled = value;
   if (!value) updateSelection();
 }
 async function post(path,body=null,extra={}) {
@@ -323,6 +325,8 @@ function showPairDetails(p) {
 }
 
 function showUpload(open) {
+  NisarSample.hide();
+  if (!open && state) showPairDetails(state);
   $("uploadPanel").hidden = !open;
   $("cancelUpload").hidden = !state;
   $("infer").hidden = open;
@@ -398,6 +402,17 @@ updateSelection();
 (async () => {
   setBusy(true);
   try {
+    const capabilities = await fetch("/sample", {cache:"no-store"});
+    if (!capabilities.ok) throw new Error("Could not read server capabilities.");
+    const config = await capabilities.json();
+    modelEnabled = config.model_enabled;
+    NisarSample.configure(config);
+    if (!modelEnabled) {
+      savedRun(null);
+      NisarSample.show();
+      if (location.hash === "#results") await openResultsFromHash();
+      return;
+    }
     const runId = savedRun();
     if (runId) {
       try { await followRun(runId); }

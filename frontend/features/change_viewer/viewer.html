@@ -40,6 +40,7 @@
   <p id="zoomHint">Ctrl + mouse wheel to zoom · Drag to pan</p>
 </footer>
 <script src="/zoom.js"></script>
+<script src="/explorer.js"></script>
 <script>
 "use strict";
 const el = id => document.getElementById(id);
@@ -66,7 +67,7 @@ async function show(index) {
   el("caption").textContent = `${current+1} / ${slides.length} · ${slide.title}` + (grayscale ? " · HH grayscale" : " · HH/HV colour");
   target.hidden = true; el("download").hidden = true;
   message.hidden = false;
-  if (!/^\d+$/.test(revision || "")) {
+  if (!Nisar.isResultRevision(revision)) {
     message.textContent = "Open the viewer from a completed result in the main window.";
     return;
   }

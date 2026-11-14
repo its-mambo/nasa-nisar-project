@@ -7,7 +7,7 @@ import shutil
 import sys
 import tempfile
 
-from nisar.app.paths import PROJECT_ROOT, FRONTEND_ROOT, MODEL_ROOT
+from nisar.app.paths import PROJECT_ROOT, FRONTEND_ROOT, MODEL_ROOT, SAMPLE_ROOT
 from nisar.features.analysis.service import Demo, NAMES
 from nisar.features.reporting.roi_visual import QWEN_ALIGNMENT
 from nisar.infrastructure.models.dual_model import (
@@ -53,6 +53,8 @@ def main():
         description=__doc__,
         epilog="Weight tools: inference.py pack, convert, or attach-adapter. Add --help for options.")
     p.add_argument("--port",type=int,default=8000)
+    p.add_argument("--sample-dir", type=Path, default=SAMPLE_ROOT,
+                   help="Saved sample offered as optional Step 0 alongside live analysis.")
     p.add_argument("--host",default="127.0.0.1",
                    help="Listen address; use 0.0.0.0 for a trusted LAN, or keep localhost with Tailscale Serve.")
     p.add_argument("--sar-device","--device",default="auto")
@@ -151,7 +153,13 @@ def main():
             return
         import uvicorn
         from nisar.app.server import create_app
-        app = create_app(demo, FRONTEND_ROOT, NAMES)
+        from nisar.features.samples.store import load_sample
+        try:
+            sample = load_sample(args.sample_dir)
+        except (OSError, ValueError, KeyError) as exc:
+            print(f"Saved sample unavailable: {exc}", flush=True)
+            sample = None
+        app = create_app(demo, FRONTEND_ROOT, NAMES, sample=sample)
         print(f"Open http://{args.host}:{args.port} · Temporary uploads: {folder}",flush=True)
         uvicorn.run(app,host=args.host,port=args.port,workers=1)
 

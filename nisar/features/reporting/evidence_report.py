@@ -219,6 +219,12 @@ def render_export(result,format="md"):
         paragraph("Would support: "+check["supports"])
         paragraph("Would weaken: "+check["weakens"])
     heading("Scope & reproducibility")
+    sample = result.get("sample")
+    if sample:
+        paragraph("Saved analysis sample: generated once and replayed without running models. Inputs, ROI, and threshold are fixed.")
+        paragraph("Sample revision: "+str(sample["revision"])+"; generated: "+str(sample["generated_at"]))
+        for date, source in sample["sources"].items():
+            paragraph(f"{date.upper()} source: {source['path']}; SHA-256: {source['sha256']}")
     for label,value in (("Threshold",result.get("threshold")),("Map reference",f"EPSG:{roi.get('epsg','Not recorded')}"),
                         ("Model cell spacing (m)",roi.get("model_spacing_m")),("T0 pixel box",roi.get("t0_pixel_box")),
                         ("Detector checkpoint SHA-256",(result.get("analysis_settings") or {}).get("detector_sha256")),

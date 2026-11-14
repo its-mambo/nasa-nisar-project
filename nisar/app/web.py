@@ -14,6 +14,7 @@ STATIC_FILES = {
     "explorer.js": ("shared/map/explorer.js", "text/javascript"),
     "navigation.css": ("shared/navigation/navigation.css", "text/css"),
     "pick.js": ("features/selection/pick.js", "text/javascript"),
+    "sample.js": ("features/samples/sample.js", "text/javascript"),
     "pick.css": ("features/selection/pick.css", "text/css"),
     "change.js": ("features/change_viewer/change.js", "text/javascript"),
     "change.css": ("features/change_viewer/change.css", "text/css"),

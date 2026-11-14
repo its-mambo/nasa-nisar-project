@@ -20,6 +20,7 @@
 <main>
   <nav aria-label="Area selection steps">
     <ol class="steps" id="steps">
+      <li data-step="0" class="sample-step"><button id="sampleStep" type="button" aria-controls="samplePanel"><span>0</span>Try a saved sample <strong>Optional · No GPU</strong></button></li>
       <li data-step="1"><button id="loadStep" type="button"><span>1</span>Load GCOV files</button></li>
       <li data-step="2"><button id="areaStep" type="button" disabled><span>2</span>Pick an area</button></li>
     </ol>
@@ -33,6 +34,23 @@
     <button class="btn" id="newPair" type="button" hidden>Load new pair</button>
   </div>
 
+  <section id="samplePanel" class="sample-panel" aria-labelledby="sampleTitle" hidden>
+    <div class="sample-intro"><span class="sample-label">READY TO EXPLORE · NO MODEL LOADING</span><h2 id="sampleTitle" tabindex="-1">A real analysis, already saved</h2><p>Explore the results from these two radar images without running the models. The input files, area, and threshold stay fixed.</p></div>
+    <div class="sample-grid">
+      <figure class="sample-preview"><img id="samplePreview" alt="Earlier radar image cropped to the fixed sample area" hidden><figcaption>Before · T0 · fixed analysis area <span>Preview only — selection is locked</span></figcaption></figure>
+      <div class="sample-details">
+        <h3>Source images</h3>
+        <dl class="sample-files"><div><dt>Before · T0</dt><dd id="sampleT0">Loading sample details…</dd></div><div><dt>After · T1</dt><dd id="sampleT1">—</dd></div></dl>
+        <h3>Fixed selection <span class="pill">Read-only</span></h3>
+        <dl class="sample-coordinates"><div><dt>Left (x₀)</dt><dd id="sampleLeft">—</dd></div><div><dt>Top (y₀)</dt><dd id="sampleTop">—</dd></div><div><dt>Right (x₁)</dt><dd id="sampleRight">—</dd></div><div><dt>Bottom (y₁)</dt><dd id="sampleBottom">—</dd></div></dl>
+        <dl class="sample-measures"><div><dt>Native size</dt><dd id="sampleSize">—</dd></div><div><dt>Projected area</dt><dd id="sampleArea">—</dd></div><div><dt>Threshold</dt><dd id="sampleThreshold">—</dd></div><div><dt>Map reference</dt><dd id="sampleCrs">—</dd></div></dl>
+        <p class="threshold-help">Coordinates use the earlier image’s pixel grid. Right and bottom edges are exclusive. Radar change does not confirm a physical cause.</p>
+        <button id="openSample" class="btn btn-primary" type="button" disabled>Explore saved results →</button>
+        <p id="sampleStatus" role="status" class="threshold-help"></p>
+      </div>
+    </div>
+    <p id="sampleModeNote" class="sample-mode-note"></p>
+  </section>
   <div class="layout loading-pair" id="pickLayout">
     <div class="main-col">
       <div class="map">
@@ -226,6 +244,7 @@
   <div class="results-shell">
     <div class="results-crumb">Projects / Analysis / Results</div>
     <div class="results-hero"><h2>Change detection results</h2><span class="results-badge">✓ Analysis complete</span><span class="results-sample">PAIRED IMAGE ANALYSIS</span></div>
+    <p id="resultSampleNotice" class="sample-mode-note" hidden></p>
     <div class="results-meta"><span>NISAR L2 GCOV</span><span id="resultDates"></span><span id="resultDays"></span><button type="button" class="crs-help" id="resultEpsg" aria-haspopup="dialog"></button></div>
     <div class="results-grid">
       <div class="results-map-card">
@@ -298,5 +317,6 @@
 <script src="/results-evidence.js"></script>
 <script src="/report-view.js"></script>
 <script src="/results.js"></script>
+<script src="/sample.js"></script>
 <script src="/pick.js"></script>
 </html>

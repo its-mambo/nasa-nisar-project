@@ -215,7 +215,7 @@
     // Use the result's own acquisition dates, even if a new pair has been loaded.
     let info = null;
     try {
-      const response = await fetch("/result", {cache: "no-store"});
+      const response = await fetch("/result" + (requested ? "?v=" + encodeURIComponent(requested) : ""), {cache: "no-store"});
       if (response.ok) info = await response.json();
     } catch { /* handled below */ }
     const acq = info?.result?.acquisitions || {};
@@ -223,11 +223,16 @@
     if (d0) el("pillBeforeText").textContent = `Before · T0 · ${d0}`;
     if (d1) el("pillAfterText").textContent = `After · T1 · ${d1}`;
 
-    revision = /^\d+$/.test(requested || "") ? requested
+    revision = Nisar.isResultRevision(requested) ? requested
              : info?.result_revision != null ? String(info.result_revision) : null;
     if (!revision) {
       showMessage("Run an analysis on the Pick an area tab first.", {href: "/", text: "Pick an area"});
       return;
+    }
+    document.querySelector('.app-tabs a[href$="#results"]').href = `/?v=${encodeURIComponent(revision)}#results`;
+    if (info?.result?.sample) {
+      el("viewerNotice").textContent = "Saved analysis sample · fixed files, ROI, and threshold 0.10. Display controls do not rerun the model.";
+      el("viewerNotice").hidden = false;
     }
     try {
       const [t0, t1] = await Promise.all(["t0", "t1"].map(loadImage));

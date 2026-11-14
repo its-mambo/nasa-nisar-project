@@ -1,0 +1,68 @@
+{
+  "format": "nisar_cached_sample_v1",
+  "revision": "sample-e30a41cdf831a8f1",
+  "sample": {
+    "title": "Saved analysis sample",
+    "roi": [
+      5323,
+      2414,
+      11255,
+      6066
+    ],
+    "threshold": 0.1,
+    "sources": {
+      "t0": {
+        "name": "NISAR_L2_PR_GCOV_023_107_D_067_2005_DHDH_A_20260621T150729_20260621T150804_P05023_N_F_J_001.h5",
+        "path": "src/NISAR_L2_PR_GCOV_023_107_D_067_2005_DHDH_A_20260621T150729_20260621T150804_P05023_N_F_J_001.h5",
+        "bytes": 1941962752,
+        "sha256": "dbc8fb9d9af7608b51fb854146501f3c5e001fb69fc7f9e857940214d5aa0a69",
+        "acquisition": {
+          "zeroDopplerStartTime": "2026-06-21T15:07:29.000000000",
+          "zeroDopplerEndTime": "2026-06-21T15:08:04.999342105",
+          "orbitPassDirection": "descending",
+          "lookDirection": "left",
+          "trackNumber": 107,
+          "frameNumber": 67,
+          "absoluteOrbitNumber": 4704
+        }
+      },
+      "t1": {
+        "name": "NISAR_L2_PR_GCOV_030_107_D_067_2005_DHDH_A_20260913T150726_20260913T150801_P05023_N_F_J_001.h5",
+        "path": "src/NISAR_L2_PR_GCOV_030_107_D_067_2005_DHDH_A_20260913T150726_20260913T150801_P05023_N_F_J_001.h5",
+        "bytes": 1937768448,
+        "sha256": "c68c6d71bcf9be1e58c89facaa4c969f7562c73b85e0b656b9e76573d8242092",
+        "acquisition": {
+          "zeroDopplerStartTime": "2026-09-13T15:07:26.000000000",
+          "zeroDopplerEndTime": "2026-09-13T15:08:01.999342105",
+          "orbitPassDirection": "descending",
+          "lookDirection": "left",
+          "trackNumber": 107,
+          "frameNumber": 67,
+          "absoluteOrbitNumber": 5915
+        }
+      }
+    },
+    "generated_at": "2026-11-14T21:38:21.057901+00:00",
+    "native_size_px": [
+      5932,
+      3652
+    ],
+    "projected_area_km2": 8665.4656,
+    "epsg": 32640,
+    "detector_sha256": "d11fd2bc10d89fe9150b9ecc7c7478a2766e4b4051b6320ab2504b31b206f506",
+    "interpretation_source": "visual"
+  },
+  "files": {
+    "t0.png": "244c7e6ac5267549365b162f0789d834f420edf0ad59ce78625765e60360a696",
+    "t1.png": "aa602ce842d91783fbd5a2f5fa90d203b6b51d7cb361fd1151290c09c821cce2",
+    "change.png": "82ce9ae3cb29cbcc658c341442af2121c90b47bba4b55bcb8a5eda761baa23b5",
+    "t0_hh.png": "5bbb89a7ae3580c6b9c3f10d58a6615bef1e129c2107739b94aa449085dd71fa",
+    "t1_hh.png": "435c3695e10626dd7b6a2f1e4276b444af919b926d19021170623b67a6639085",
+    "change_hh.png": "dea17124271bde602c5c06d9019f56efc3ebbbcf8623a05d344dd32f92f74260",
+    "overlay.png": "d1d3cf7c6311a7af8380a8b212f622dc4954ca5896e93c97b92f5e8a0e8140dd",
+    "change_t1.png": "e8e52c27a64d685c5b4fa5a34cb10a9395988301e8da405e660c8eb0206e05f6",
+    "change_t1_hh.png": "2509950a5f4460ec09487fb6d076cbee76e304dfcefeaf637f996977f55a2d69",
+    "sample-preview.png": "b07eca7038c83aa806d23d1eaaa622129ef58919e8fa20bdeb193ff9ee7db8bd",
+    "result.json": "f791bd74af8b51260842765da2213bbd13ca19385f8721dd5504b5a38abdf52f"
+  }
+}

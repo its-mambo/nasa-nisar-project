@@ -114,7 +114,7 @@
     byId("reportValidation").textContent=report.validation+(report.ai.format_note ? ` Format note: ${report.ai.format_note}` : "");
     const rev=new URL(data.images?.["t0.png"] || "/",location.origin).searchParams.get("v");
     for(const [id,ext] of [["reportMarkdown","md"],["reportText","txt"]]) {
-      byId(id).hidden=!/^\d+$/.test(rev || "");
+      byId(id).hidden=!Nisar.isResultRevision(rev);
       if (rev) { byId(id).href=`/report.${ext}?v=${encodeURIComponent(rev)}`; byId(id).download=`nisar-evidence-report-${rev}.${ext}`; }
     }
   }

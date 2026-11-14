@@ -142,7 +142,7 @@ function resultRevision() {
   const url = resultData?.images?.["t0.png"];
   if (!url) return null;
   const v = new URL(url, location.origin).searchParams.get("v");
-  return /^\d+$/.test(v || "") ? v : null;
+  return Nisar.isResultRevision(v) ? v : null;
 }
 resultsEl("resultViewerLink").addEventListener("click", () => {
   const rev = resultRevision();
@@ -298,9 +298,14 @@ function showResultsV2(data) {
   resultsEl("decoderBody").replaceChildren();
   NisarReport.render(data,{onInspectSector:inspectReportSector});
   resultsEl("details").textContent = JSON.stringify(data,null,2);
+  resultsEl("resultSampleNotice").hidden = !data.sample;
+  if (data.sample) resultsEl("resultSampleNotice").textContent = "Saved analysis sample · fixed ROI and threshold 0.10 · generated " + new Date(data.sample.generated_at).toLocaleDateString() + ". No models are running. Source filenames and checksums are included in the JSON and report exports.";
+  const resultsUrl = data.sample ? `/?v=${encodeURIComponent(resultRevision())}#results` : "/#results";
+  resultsEl("resultsTab").href = resultsUrl;
+  document.querySelector('.app-tabs a[href^="/change"]').href = `/change?v=${encodeURIComponent(resultRevision())}`;
   resultsEl("pickPage").hidden = true;
   // "/#results" reopens this tab (used by the Results link on the Change page).
-  if (location.hash !== "#results") history.replaceState(null, "", "/#results");
+  history.replaceState(null, "", resultsUrl);
   window.scrollTo(0,0);
 }
 function showPickTab() {
@@ -324,9 +329,10 @@ resultsEl("pickTab").addEventListener("click", e => {
 // Open the Results tab from the URL: the latest result is kept by the server.
 async function openResultsFromHash() {
   if (location.hash !== "#results") return;
-  if (savedRun()) return;
+  const requested = new URLSearchParams(location.search).get("v");
+  if (savedRun() && !requested?.startsWith("sample-")) return;
   try {
-    const r = await fetch("/result", {cache: "no-store"});
+    const r = await fetch("/result" + (requested ? "?v=" + encodeURIComponent(requested) : ""), {cache: "no-store"});
     const {result} = r.ok ? await r.json() : {};
     if (location.hash !== "#results") return;
     if (result) {

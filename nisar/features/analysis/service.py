@@ -10,16 +10,12 @@ from time import perf_counter
 import numpy as np
 from PIL import Image
 
+from nisar.features.analysis.artifacts import NAMES, PREVIEW_TILE
 from nisar.features.imagery.rendering import aligned_power, limits_for, tone
 from nisar.features.reporting.roi_interpretation import LIMIT, interpret, radar_patterns
 from nisar.features.reporting.roi_report import paired_sector_deltas, report_sections, scene_observations
 from nisar.features.reporting.evidence_report import build_report
 from nisar.features.reporting.roi_visual import DecoderTrace, native_views, native_change_map
-
-
-NAMES = ("t0.png", "t1.png", "change.png",
-         "t0_hh.png", "t1_hh.png", "change_hh.png", "overlay.png", "change_t1.png", "change_t1_hh.png")
-PREVIEW_TILE = 512
 
 
 def medians(z,valid):

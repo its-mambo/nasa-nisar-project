@@ -12,6 +12,7 @@ scripts in their existing load order; this reorganization adds no build step.
 | `nisar/features/imagery/` | Read GCOV data, align dates, render preview pixels | `gcov.py`, `rendering.py` |
 | `nisar/features/analysis/` | Manage the loaded pair and selection, orchestrate detection and reporting, estimate progress | `service.py`, `progress_timing.py` |
 | `nisar/features/reporting/` | Derive measurements and patterns, prepare decoder evidence, validate AI claims, export reports | `roi_report.py`, `roi_interpretation.py`, `roi_visual.py`, `qwen_evidence_prompt.py`, `evidence_report.py` |
+| `nisar/features/samples/` | Fixed judging inputs, one-time cache generation, integrity checks, model-free playback | `spec.py`, `builder.py`, `store.py` |
 | `nisar/infrastructure/models/` | Implement model loading, inference adapters, and weight packaging | `change_model.py`, `dual_model.py` |
 | `nisar/app/` | Parse commands, create models/services, adapt HTTP requests, serve browser resources | `cli.py`, `server.py`, `web.py`, `paths.py` |
 
@@ -38,6 +39,24 @@ scripts and styles live together under `frontend/features/`:
 - `change_viewer/`: before/after/split comparison and the full-image popup.
 - `results/`: result display, measurements, map controls, CSV/JSON export.
 - `reporting/`: evidence charts, claim references, interpretation, report exports.
+- `samples/`: optional Step 0, with read-only source filenames, ROI, settings, and preview.
+
+`launch.py` chooses the runtime before importing model/data libraries. In sample
+mode, `SampleSession` and `CachedSample` use only the standard library; the
+shared FastAPI server streams cached PNGs. `requirements-sample.txt` is enough
+for playback. Mutable API endpoints reject requests in this mode.
+
+Sample revisions use `sample-` plus a content identifier. `/result?v=REV`,
+image URLs, and report exports resolve that immutable sample independently of
+the current live pair/result. Browser links retain the sample revision across
+Results, Change viewer, and reloads. The saved sample does not overwrite live
+selection, dates, viewport, overlay preferences, or the latest live result.
+
+`cache_sample.py` runs the fixed real analysis, verifies the export, and writes
+an immutable bundle with source/file hashes under `samples/judges/`. Its
+`current.json` pointer is replaced atomically only after publication. The
+bundled sample contains model output, measured data, and full-resolution
+display images. Live decoder tensor captures are not part of portable playback.
 
 `frontend/shared/map/` owns reusable viewport behavior and revision-scoped
 preferences. Shared navigation styles and icons have their own folders.

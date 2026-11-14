@@ -27,6 +27,34 @@
   .steps li button { display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; background: transparent; color: inherit; border: 1px solid transparent; border-radius: 8px; cursor: pointer; }
   .steps li.active button { background: var(--teal-soft); font-weight: 600; }
   .steps button:disabled { cursor: default; }
+  .steps .sample-step button { border: 1px solid #d4b565; background: #fff9e9; color: #72501b; }
+  .steps .sample-step.active button { border-color: var(--teal); background: var(--teal-soft); color: var(--teal-ink); }
+  .steps .sample-step strong { font-size: .68rem; font-weight: 600; background: #f5e7be; padding: .18rem .45rem; border-radius: 5px; white-space: nowrap; }
+  .sample-panel { border: 1px solid #b9d6d7; border-radius: 12px; background: var(--card); overflow: hidden; }
+  .sample-intro { padding: 1.3rem 1.5rem; background: var(--teal-soft); border-bottom: 1px solid #cbe0e0; }
+  .sample-label { color: var(--teal-ink); font-size: .68rem; font-weight: 700; letter-spacing: .1em; }
+  .sample-intro h2 { margin: .4rem 0; font-size: 1.45rem; }
+  .sample-intro p { margin: 0; color: var(--muted); max-width: 720px; }
+  .sample-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr); }
+  .sample-preview { margin: 0; padding: 1.3rem; background: #16212b; display: flex; flex-direction: column; justify-content: center; min-height: 280px; }
+  .sample-preview img { width: 100%; height: auto; display: block; border: 2px solid var(--amber); }
+  .sample-preview figcaption { color: #e6edf3; font-size: .8rem; margin-top: .8rem; }
+  .sample-preview figcaption span { display: block; color: #afbfcd; margin-top: .2rem; font-size: .75rem; }
+  .sample-details { padding: 1.3rem 1.5rem; min-width: 0; }
+  .sample-details h3 { display: flex; align-items: center; gap: .6rem; font-size: .9rem; }
+  .sample-files { margin: .75rem 0 1.3rem; display: grid; gap: .7rem; }
+  .sample-files dt { font-size: .75rem; font-weight: 600; color: var(--muted); margin-bottom: .15rem; }
+  .sample-files dd { margin: 0; font: .75rem/1.5 ui-monospace, monospace; overflow-wrap: anywhere; }
+  .sample-coordinates { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; margin: .75rem 0; }
+  .sample-coordinates div { background: var(--soft); padding: .5rem; border-radius: 6px; }
+  .sample-coordinates dt, .sample-measures dt { font-size: .75rem; color: var(--muted); }
+  .sample-coordinates dd, .sample-measures dd { margin: .2rem 0 0; font-size: .9rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .sample-measures { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; margin: .8rem 0; }
+  #openSample { width: 100%; margin-top: 1rem; padding: .75rem; }
+  .sample-mode-note { background: #fff9e9; border: 1px solid #e8d59e; color: #72501b; padding: .75rem 1rem; border-radius: 8px; font-size: .83rem; line-height: 1.5; }
+  .sample-panel > .sample-mode-note { margin: 0; border-width: 1px 0 0; border-radius: 0; }
+  @media (max-width: 850px) { .sample-grid { grid-template-columns: 1fr; } .sample-preview { min-height: 200px; } }
+  @media (max-width: 440px) { .sample-coordinates { grid-template-columns: 1fr 1fr; } .sample-details, .sample-intro { padding: 1rem; } }
   :is(button, input, a):focus-visible { outline: 3px solid #9cceff; outline-offset: 3px; }
   .topbar .spacer { flex: 1; }
   .server-state { color: var(--muted); font-size: .85rem; display: flex; align-items: center; gap: .4rem; }

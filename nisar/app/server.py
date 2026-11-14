@@ -11,11 +11,12 @@ import traceback
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 from nisar.app.web import register_web_routes
 from nisar.features.analysis.progress_timing import RunTiming
 from nisar.features.reporting.evidence_report import build_report, render_export
+from nisar.features.samples.store import IMAGE_FILES
 
 
 MAX_CHUNK = 8 * 1024 * 1024
@@ -38,7 +39,7 @@ def call_locked(demo, func):
         return error(500, f"{type(exc).__name__}: {exc}")
 
 
-def create_app(demo, root: Path, names):
+def create_app(demo, root: Path, names, *, sample=None, model_enabled=True):
     app = FastAPI(title="NISAR SAR Change Explorer")
     image_names = set(names)
     # Progress has its own lock: inference holds demo.lock while using the models.
@@ -84,6 +85,17 @@ def create_app(demo, root: Path, names):
 
     register_web_routes(app, root)
 
+    @app.get("/sample")
+    def sample_info():
+        return {"model_enabled": model_enabled,
+                "sample": sample.describe() if sample else {"available": False}}
+
+    def saved_revision(v):
+        return sample is not None and v == sample.revision
+
+    def read_only():
+        return error(409, "Saved sample mode is read-only. Start launch.py --mode model to analyze another area.")
+
     @app.get("/pair")
     def pair():
         with demo.lock:
@@ -91,9 +103,13 @@ def create_app(demo, root: Path, names):
             return {"pair": demo.info, "result_revision": demo.result_revision}
 
     @app.get("/result")
-    def result():
+    def result(v: str = ""):
+        if saved_revision(v) or (not model_enabled and not v and sample is not None):
+            return {"result": sample.result(), "result_revision": sample.revision}
         with demo.lock:
             revision = demo.result_revision
+            if v and v != str(revision):
+                return error(410, "This result is no longer available")
             data = getattr(demo, "last_result", None) if revision is not None else None
         # The UI can adopt an already completed result from before the structured report upgrade.
         if data is not None and "evidence_report" not in data:
@@ -104,16 +120,21 @@ def create_app(demo, root: Path, names):
     def report_export(format: str, v: str = ""):
         if format not in {"md","txt"}:
             return error(404,"Choose a Markdown or plain-text report.")
-        with demo.lock:
-            if demo.result_revision is None or v != str(demo.result_revision) or demo.last_result is None:
-                return error(410,"This result is no longer available")
-            data = demo.last_result
+        if saved_revision(v):
+            data = sample.result()
+        else:
+            with demo.lock:
+                if demo.result_revision is None or v != str(demo.result_revision) or demo.last_result is None:
+                    return error(410,"This result is no longer available")
+                data = demo.last_result
         contents = render_export(data,format)
         return Response(contents,media_type="text/markdown" if format=="md" else "text/plain",
                         headers={"Content-Disposition":f'attachment; filename="nisar-evidence-report-{v}.{format}"'})
 
     @app.get("/decoder-inputs")
     def decoder_inputs(v: str = ""):
+        if saved_revision(v):
+            return error(404, "Live decoder inputs are not included in the portable sample.")
         with demo.lock:
             revision, trace = demo.result_revision, demo.decoder_trace
         if revision is None or v != str(revision):
@@ -124,6 +145,8 @@ def create_app(demo, root: Path, names):
 
     @app.get("/decoder-tokens.npz")
     def decoder_tokens(v: str = ""):
+        if saved_revision(v):
+            return error(404, "Decoder tensors are not included in the portable sample.")
         with demo.lock:
             revision, trace = demo.result_revision, demo.decoder_trace
         if revision is None or v != str(revision):
@@ -136,6 +159,8 @@ def create_app(demo, root: Path, names):
 
     @app.get("/decoder-panel.png")
     def decoder_panel(v: str = "", i: str = ""):
+        if saved_revision(v):
+            return error(404, "Live decoder inputs are not included in the portable sample.")
         with demo.lock:
             revision, trace = demo.result_revision, demo.decoder_trace
         if revision is None or v != str(revision):
@@ -152,6 +177,8 @@ def create_app(demo, root: Path, names):
 
     @app.get("/preview-tile.png")
     def preview_tile(v: str = "", mode: str = "", step: str = "", col: str = "", row: str = "", date: str = "t0"):
+        if not model_enabled:
+            return error(404, "Sample mode uses saved images rather than live preview tiles.")
         def render():
             if demo.info is None or v != str(demo.info["revision"]):
                 return error(410, "This preview is no longer available")
@@ -164,6 +191,12 @@ def create_app(demo, root: Path, names):
     @app.get("/{filename}.png")
     def png(filename: str, v: str = ""):
         name = filename + ".png"
+        if saved_revision(v):
+            if name not in IMAGE_FILES:
+                return error(404, "Image not included in this sample")
+            return FileResponse(sample.directory / name, media_type="image/png")
+        if v.startswith("sample-"):
+            return error(410, "This saved sample is no longer available")
         if name not in image_names and name not in {"preview.png", "preview_hh.png", "preview_t1.png", "preview_t1_hh.png"}:
             return error(404, "Image not found")
         with demo.lock:
@@ -188,6 +221,8 @@ def create_app(demo, root: Path, names):
     async def upload(date: str, request: Request):
         if request.headers.get("x-nisar-demo") != "1":
             return error(403, "Open the demo page to submit requests.")
+        if not model_enabled:
+            return read_only()
         if date not in {"t0", "t1"}:
             return error(404, "Unknown endpoint.")
         data = await read_limited(request, MAX_CHUNK)
@@ -204,12 +239,16 @@ def create_app(demo, root: Path, names):
     def prepare(request: Request):
         if request.headers.get("x-nisar-demo") != "1":
             return error(403, "Open the demo page to submit requests.")
+        if not model_enabled:
+            return read_only()
         return call_locked(demo, demo.prepare)
 
     @app.post("/infer")
     async def infer(request: Request):
         if request.headers.get("x-nisar-demo") != "1":
             return error(403, "Open the demo page to submit requests.")
+        if not model_enabled:
+            return read_only()
         raw = await read_limited(request, 2048)
         if not raw:
             return error(400, "Expected a small selection JSON body.")

@@ -4,6 +4,12 @@ const assert = require("node:assert/strict");
 const {createPreferences,crsName,captureViewport,restoreViewport} = require("../../frontend/shared/map/explorer.js");
 const {metrics,sectorCsv} = require("../../frontend/features/results/results-evidence.js");
 const {composition} = require("../../frontend/features/reporting/report-view.js");
+const {isResultRevision} = require("../../frontend/shared/map/explorer.js");
+
+test("Live and immutable sample revisions are accepted without allowing arbitrary paths", () => {
+  for (const revision of ["12", "sample-0123456789abcdef"]) assert.equal(isResultRevision(revision), true);
+  for (const revision of [null, "sample-bad", "../result", "sample-0123456789abcdef/extra"]) assert.equal(isResultRevision(revision), false);
+});
 
 test("Report composition uses all grid cells and keeps missing data out of unflagged counts",() => {
   const c=composition({changed_pixels:50,valid_pixels:100,roi:{model_grid_width_px:20,model_grid_height_px:10}});

@@ -1,0 +1,620 @@
+{
+  "candidate_regions": 1039,
+  "candidate_crops": 199,
+  "representatives": [
+    {
+      "row": 1568,
+      "col": 1344,
+      "component": 7,
+      "pixels": 5758,
+      "touches_tile_edge": false
+    },
+    {
+      "row": 2688,
+      "col": 1120,
+      "component": 6,
+      "pixels": 4338,
+      "touches_tile_edge": false
+    },
+    {
+      "row": 2240,
+      "col": 5376,
+      "component": 28,
+      "pixels": 3783,
+      "touches_tile_edge": false
+    }
+  ],
+  "min_region_pixels": 64,
+  "min_valid_fraction": 0.98,
+  "status": "ok",
+  "predictions": {
+    "linear": {
+      "label": "other_change",
+      "scores": {
+        "water_related": 0.1561330109834671,
+        "other_change": 0.8438669443130493
+      }
+    }
+  },
+  "score_note": "Experimental softmax scores; not calibrated probabilities.",
+  "threshold": 0.1,
+  "valid_pixels": 21099696,
+  "changed_pixels": 999843,
+  "analysis_settings": {
+    "frequency": "A",
+    "channels": [
+      "HH",
+      "HV"
+    ],
+    "detector_sha256": "d11fd2bc10d89fe9150b9ecc7c7478a2766e4b4051b6320ab2504b31b206f506",
+    "detector_tile_size_px": 224,
+    "detector_overlap_px": 32,
+    "batch_size": 2,
+    "db_clip": [
+      -50.0,
+      10.0
+    ],
+    "overlay_max_delta_db": 10,
+    "preprocessing": "Mean native power at model spacing, then 10 log10 to dB"
+  },
+  "spatial_context": {
+    "grid_reference": "image frame",
+    "zones": [
+      {
+        "zone": "upper left",
+        "valid": 2406009,
+        "flagged": 71285,
+        "mean_hh_db": -19.02902853978565
+      },
+      {
+        "zone": "upper center",
+        "valid": 2406009,
+        "flagged": 67180,
+        "mean_hh_db": -20.38381957974552
+      },
+      {
+        "zone": "upper right",
+        "valid": 1843258,
+        "flagged": 228702,
+        "mean_hh_db": -16.80163177776246
+      },
+      {
+        "zone": "middle left",
+        "valid": 2406009,
+        "flagged": 245614,
+        "mean_hh_db": -21.88022422156423
+      },
+      {
+        "zone": "center",
+        "valid": 2406009,
+        "flagged": 29862,
+        "mean_hh_db": -19.86976448365536
+      },
+      {
+        "zone": "middle right",
+        "valid": 2407226,
+        "flagged": 162116,
+        "mean_hh_db": -16.496042579445056
+      },
+      {
+        "zone": "lower left",
+        "valid": 2407986,
+        "flagged": 70539,
+        "mean_hh_db": -21.256751855198544
+      },
+      {
+        "zone": "lower center",
+        "valid": 2407986,
+        "flagged": 11369,
+        "mean_hh_db": -20.514436172951186
+      },
+      {
+        "zone": "lower right",
+        "valid": 2409204,
+        "flagged": 113176,
+        "mean_hh_db": -16.099432437900504
+      }
+    ],
+    "scene_description": "Across both dates, average HH radar returns were strongest in the lower right and weakest in the middle left of the image frame.",
+    "change_map_description": "The detector flagged 4.7% of valid pixels. The middle left of the image frame had the most flagged pixels (24.6% of all flagged pixels)."
+  },
+  "full_scene_context": {
+    "scope": "Systematic sample of common footprint; no full-scene inference",
+    "sample_stride": 36,
+    "sample_pairs": 123084,
+    "median_t0_hh_hv_db": [
+      -19.18,
+      -23.83
+    ],
+    "median_t1_hh_hv_db": [
+      -18.82,
+      -23.94
+    ]
+  },
+  "paired_sector_deltas": [
+    {
+      "zone": "middle left",
+      "flagged": {
+        "cells": 245614,
+        "median_delta_hh_hv_db": [
+          4.71,
+          0.84
+        ]
+      },
+      "unflagged": {
+        "cells": 2160395,
+        "median_delta_hh_hv_db": [
+          0.69,
+          -0.04
+        ]
+      }
+    },
+    {
+      "zone": "upper right",
+      "flagged": {
+        "cells": 228702,
+        "median_delta_hh_hv_db": [
+          -2.95,
+          -2.72
+        ]
+      },
+      "unflagged": {
+        "cells": 1614556,
+        "median_delta_hh_hv_db": [
+          -0.07,
+          -0.27
+        ]
+      }
+    },
+    {
+      "zone": "middle right",
+      "flagged": {
+        "cells": 162116,
+        "median_delta_hh_hv_db": [
+          -1.97,
+          -1.89
+        ]
+      },
+      "unflagged": {
+        "cells": 2245110,
+        "median_delta_hh_hv_db": [
+          -0.08,
+          -0.23
+        ]
+      }
+    }
+  ],
+  "roi": {
+    "t0_pixel_box": [
+      5323,
+      2414,
+      11255,
+      6066
+    ],
+    "t1_pixel_box": [
+      5323,
+      2414,
+      11255,
+      6066
+    ],
+    "width_px": 5932,
+    "height_px": 3652,
+    "projected_bounds_wsen": [
+      539900.0,
+      4761720.0,
+      658540.0,
+      4834760.0
+    ],
+    "epsg": 32640,
+    "projected_rectangle_km2": 8665.4656,
+    "native_joint_valid_pixels": 21099696,
+    "native_spacing_m": [
+      20.0,
+      20.0
+    ],
+    "model_spacing_m": 20.0,
+    "model_grid_width_px": 5932,
+    "model_grid_height_px": 3652
+  },
+  "roi_measurements": {
+    "median_hh_hv_db_t0_t1": [
+      [
+        -19.88,
+        -24.81
+      ],
+      [
+        -19.77,
+        -25.03
+      ]
+    ],
+    "median_rtc_gamma_to_sigma_factor_t0_t1": [
+      0.778333,
+      0.778271
+    ]
+  },
+  "acquisitions": {
+    "t0": {
+      "zeroDopplerStartTime": "2026-06-21T15:07:29.000000000",
+      "zeroDopplerEndTime": "2026-06-21T15:08:04.999342105",
+      "orbitPassDirection": "descending",
+      "lookDirection": "left",
+      "trackNumber": 107,
+      "frameNumber": 67,
+      "absoluteOrbitNumber": 4704
+    },
+    "t1": {
+      "zeroDopplerStartTime": "2026-09-13T15:07:26.000000000",
+      "zeroDopplerEndTime": "2026-09-13T15:08:01.999342105",
+      "orbitPassDirection": "descending",
+      "lookDirection": "left",
+      "trackNumber": 107,
+      "frameNumber": 67,
+      "absoluteOrbitNumber": 5915
+    }
+  },
+  "warnings": [],
+  "report_sections": [
+    {
+      "title": "Acquisitions and coverage",
+      "text": "T0 was acquired on 2026-06-21 and T1 on 2026-09-13. The acquisitions are 84 calendar days apart. T0: descending, left, track 107, frame 67. T1: descending, left, track 107, frame 67. The selection covers 5,932 × 3,652 native pixels, or 8,665.47 km² on the projected grid (EPSG:32640). Both dates have usable HH and HV at 21,099,696 native pixels. The detector works at 20 m spacing."
+    },
+    {
+      "title": "Radar returns within the selection",
+      "text": "Median backscatter at T0 was HH -19.88 dB and HV -24.81 dB; at T1 it was HH -19.77 dB and HV -25.03 dB. The T1 minus T0 difference between date medians was HH +0.11 dB and HV -0.22 dB. Across both dates, average HH radar returns were strongest in the lower right and weakest in the middle left of the image frame."
+    },
+    {
+      "title": "Where the detector flagged change",
+      "text": "At threshold 0.1, the detector flagged 999,843 of 21,099,696 valid model pixels (4.7%), equivalent to approximately 399.94 km² of flagged grid cells. The sectors with the most flags were middle left: 245,614 flags (24.6% of all flags; 10.2% of valid pixels within that sector); upper right: 228,702 flags (22.9% of all flags; 12.4% of valid pixels within that sector); middle right: 162,116 flags (16.2% of all flags; 6.7% of valid pixels within that sector)."
+    },
+    {
+      "title": "Flagged patches versus background",
+      "text": "Median of paired T1 minus T0 backscatter on the detector grid. middle left: flagged HH +4.71 dB, HV +0.84 dB; unflagged HH +0.69 dB, HV -0.04 dB. upper right: flagged HH -2.95 dB, HV -2.72 dB; unflagged HH -0.07 dB, HV -0.27 dB. middle right: flagged HH -1.97 dB, HV -1.89 dB; unflagged HH -0.08 dB, HV -0.23 dB."
+    },
+    {
+      "title": "Context from the common footprint",
+      "text": "Across 123,084 matched samples from the shared HDF5 footprint, the T0 medians were HH -19.18 dB and HV -23.83 dB; the T1 medians were HH -18.82 dB and HV -23.94 dB. These are background statistics; the detector ran only inside the selected area."
+    },
+    {
+      "title": "Model label and interpretation",
+      "text": "The linear model assigned “Other change” with a score of 84.4%. Radar flags are observations of backscatter change, not confirmation of a physical cause."
+    }
+  ],
+  "pattern_evidence": {
+    "status": "measured",
+    "flagged_cells_analyzed": 999843,
+    "block_size_cells": 47,
+    "weak_cutoffs_hh_hv_db": [
+      -21.81,
+      -26.2
+    ],
+    "widespread_unflagged_shift": false,
+    "patterns": {
+      "darkening_at_weak_area": {
+        "flagged_cells": 0,
+        "largest_cluster_blocks": 0,
+        "leading_zone": null
+      },
+      "brightening_at_weak_area": {
+        "flagged_cells": 0,
+        "largest_cluster_blocks": 0,
+        "leading_zone": null
+      },
+      "persistently_weak": {
+        "flagged_cells": 0,
+        "largest_cluster_blocks": 0,
+        "leading_zone": null
+      },
+      "brighter_area": {
+        "flagged_cells": 95662,
+        "largest_cluster_blocks": 42,
+        "leading_zone": "upper right"
+      }
+    },
+    "candidates": []
+  },
+  "interpretation": {
+    "source": "visual",
+    "summary": "{\n \"observations\":[\n  {\n   \"text\":\"The dark basin on the left becomes darker while the right side shows weaker scattering.\",\n   \"evidence_refs\":[\"image:t0\",\"image:t1\"]\n  }\n ],\n \"hypothesis\": {\n  \"title\":\"Reduced scattering in the central basin\",\n  \"explanation\":\"Weaker radar return across the smooth basin contrasts with isolated flagged patches; the difference may reflect changes in surface roughness rather than expansion.\",\n  \"evidence_refs\":[\"ai:observation:1\"]\n },\n \"verification\": [\n  {\n   \"source_type\":\"additional_radar_date\",\n   \"compare\":\"the response at the same boundary before and after the date gap\",\n   \"supports\":\"a weaker response in the middle-right sector without a coherent expanding margin\",\n   \"weakens\":\"an expansion hypothesis that fits the flagged pairs\"\n  },\n  {\n   \"source_type\":\"water_records\",\n   \"compare\":\"the reach-to-reach response at the center against known channel geometry\",\n   \"supports\":\"a consistent reduction in scattering matches the flagged sectors\",\n   \"weakens\":\"an expansion hypothesis that fits the flagged pairs\"\n  }\n ]\n}",
+    "limitation": "These are hypotheses from two SAR acquisitions. Weak returns are not a water map, and the detector and linear label do not identify a physical cause.",
+    "decoder": "qwen_lora"
+  },
+  "evidence_report": {
+    "schema_version": "nisar_evidence_report_v1",
+    "finding": {
+      "kind": "detector",
+      "text": "The detector flagged 399.94 km² · 4.7% of valid model cells.",
+      "evidence_refs": [
+        "detector:summary"
+      ]
+    },
+    "evidence": [
+      {
+        "id": "detector:summary",
+        "kind": "detector",
+        "label": "Detector-flagged area",
+        "display": "399.94 km² · 4.7% of valid model cells",
+        "value": 399.9372,
+        "unit": "km²",
+        "cells": 999843,
+        "valid_cells": 21099696,
+        "threshold": 0.1,
+        "source_paths": [
+          "changed_pixels",
+          "valid_pixels",
+          "roi.model_spacing_m",
+          "threshold"
+        ]
+      },
+      {
+        "id": "coverage:paired",
+        "kind": "measured",
+        "label": "Usable model coverage",
+        "display": "97.4% · 21,099,696 jointly valid cells",
+        "value": 97.39670999328645,
+        "unit": "%",
+        "source_paths": [
+          "valid_pixels",
+          "roi.model_grid_width_px",
+          "roi.model_grid_height_px"
+        ]
+      },
+      {
+        "id": "sector:middle_left:hh:flagged",
+        "kind": "measured",
+        "label": "Middle Left · HH · flagged",
+        "display": "+4.71 dB",
+        "value": 4.71,
+        "unit": "dB",
+        "cells": 245614,
+        "sector": "middle left",
+        "channel": "HH",
+        "group": "flagged",
+        "source_paths": [
+          "paired_sector_deltas.0.flagged.median_delta_hh_hv_db.0"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "sector:middle_left:hv:flagged",
+        "kind": "measured",
+        "label": "Middle Left · HV · flagged",
+        "display": "+0.84 dB",
+        "value": 0.84,
+        "unit": "dB",
+        "cells": 245614,
+        "sector": "middle left",
+        "channel": "HV",
+        "group": "flagged",
+        "source_paths": [
+          "paired_sector_deltas.0.flagged.median_delta_hh_hv_db.1"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "sector:middle_left:hh:unflagged",
+        "kind": "measured",
+        "label": "Middle Left · HH · other valid cells",
+        "display": "+0.69 dB",
+        "value": 0.69,
+        "unit": "dB",
+        "cells": 2160395,
+        "sector": "middle left",
+        "channel": "HH",
+        "group": "unflagged",
+        "source_paths": [
+          "paired_sector_deltas.0.unflagged.median_delta_hh_hv_db.0"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "sector:middle_left:hv:unflagged",
+        "kind": "measured",
+        "label": "Middle Left · HV · other valid cells",
+        "display": "-0.04 dB",
+        "value": -0.04,
+        "unit": "dB",
+        "cells": 2160395,
+        "sector": "middle left",
+        "channel": "HV",
+        "group": "unflagged",
+        "source_paths": [
+          "paired_sector_deltas.0.unflagged.median_delta_hh_hv_db.1"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "sector:upper_right:hh:flagged",
+        "kind": "measured",
+        "label": "Upper Right · HH · flagged",
+        "display": "-2.95 dB",
+        "value": -2.95,
+        "unit": "dB",
+        "cells": 228702,
+        "sector": "upper right",
+        "channel": "HH",
+        "group": "flagged",
+        "source_paths": [
+          "paired_sector_deltas.1.flagged.median_delta_hh_hv_db.0"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "sector:upper_right:hv:flagged",
+        "kind": "measured",
+        "label": "Upper Right · HV · flagged",
+        "display": "-2.72 dB",
+        "value": -2.72,
+        "unit": "dB",
+        "cells": 228702,
+        "sector": "upper right",
+        "channel": "HV",
+        "group": "flagged",
+        "source_paths": [
+          "paired_sector_deltas.1.flagged.median_delta_hh_hv_db.1"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "sector:upper_right:hh:unflagged",
+        "kind": "measured",
+        "label": "Upper Right · HH · other valid cells",
+        "display": "-0.07 dB",
+        "value": -0.07,
+        "unit": "dB",
+        "cells": 1614556,
+        "sector": "upper right",
+        "channel": "HH",
+        "group": "unflagged",
+        "source_paths": [
+          "paired_sector_deltas.1.unflagged.median_delta_hh_hv_db.0"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "sector:upper_right:hv:unflagged",
+        "kind": "measured",
+        "label": "Upper Right · HV · other valid cells",
+        "display": "-0.27 dB",
+        "value": -0.27,
+        "unit": "dB",
+        "cells": 1614556,
+        "sector": "upper right",
+        "channel": "HV",
+        "group": "unflagged",
+        "source_paths": [
+          "paired_sector_deltas.1.unflagged.median_delta_hh_hv_db.1"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "sector:middle_right:hh:flagged",
+        "kind": "measured",
+        "label": "Middle Right · HH · flagged",
+        "display": "-1.97 dB",
+        "value": -1.97,
+        "unit": "dB",
+        "cells": 162116,
+        "sector": "middle right",
+        "channel": "HH",
+        "group": "flagged",
+        "source_paths": [
+          "paired_sector_deltas.2.flagged.median_delta_hh_hv_db.0"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "sector:middle_right:hv:flagged",
+        "kind": "measured",
+        "label": "Middle Right · HV · flagged",
+        "display": "-1.89 dB",
+        "value": -1.89,
+        "unit": "dB",
+        "cells": 162116,
+        "sector": "middle right",
+        "channel": "HV",
+        "group": "flagged",
+        "source_paths": [
+          "paired_sector_deltas.2.flagged.median_delta_hh_hv_db.1"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "sector:middle_right:hh:unflagged",
+        "kind": "measured",
+        "label": "Middle Right · HH · other valid cells",
+        "display": "-0.08 dB",
+        "value": -0.08,
+        "unit": "dB",
+        "cells": 2245110,
+        "sector": "middle right",
+        "channel": "HH",
+        "group": "unflagged",
+        "source_paths": [
+          "paired_sector_deltas.2.unflagged.median_delta_hh_hv_db.0"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "sector:middle_right:hv:unflagged",
+        "kind": "measured",
+        "label": "Middle Right · HV · other valid cells",
+        "display": "-0.23 dB",
+        "value": -0.23,
+        "unit": "dB",
+        "cells": 2245110,
+        "sector": "middle right",
+        "channel": "HV",
+        "group": "unflagged",
+        "source_paths": [
+          "paired_sector_deltas.2.unflagged.median_delta_hh_hv_db.1"
+        ],
+        "method": "Median of paired T1-minus-T0 model-cell backscatter differences"
+      },
+      {
+        "id": "image:t0",
+        "kind": "image",
+        "label": "Before image (T0)",
+        "display": "2026-06-21T15:07:29.000000000",
+        "source_paths": [
+          "images[\"t0.png\"]"
+        ]
+      },
+      {
+        "id": "image:t1",
+        "kind": "image",
+        "label": "After image (T1)",
+        "display": "2026-09-13T15:07:26.000000000",
+        "source_paths": [
+          "images[\"t1.png\"]"
+        ]
+      }
+    ],
+    "featured_evidence": [
+      "coverage:paired",
+      "sector:middle_left:hh:flagged",
+      "sector:middle_left:hv:flagged"
+    ],
+    "ai": {
+      "status": "unavailable",
+      "observations": [],
+      "hypothesis": null,
+      "verification": [
+        {
+          "source_type": "optical_imagery",
+          "source": "Optical imagery",
+          "consulted": false,
+          "compare": "Inspect spatially matched optical images near both acquisition dates at the flagged locations.",
+          "supports": "A corresponding change in boundaries or surface appearance supports investigating a physical change.",
+          "weakens": "Unchanged features weaken a feature-specific explanation; consider broader radar-acquisition effects."
+        }
+      ],
+      "format_note": "Unexpected interpretation fields"
+    },
+    "attribution_status": "Cause unresolved",
+    "caution": "Radar-signal change and detector flags do not confirm an environmental cause.",
+    "validation": "AI output was checked for format and valid references, not independently validated scientifically.",
+    "external_context": [],
+    "provenance": {
+      "decoder": "qwen_lora",
+      "threshold": 0.1,
+      "epsg": 32640
+    }
+  },
+  "timing_s": {
+    "input_and_render": 1.644,
+    "detection_classification_and_early_vision": 676.135,
+    "qwen_report": 70.352,
+    "total": 797.218
+  },
+  "images": {
+    "t0.png": "t0.png",
+    "t1.png": "t1.png",
+    "change.png": "change.png",
+    "t0_hh.png": "t0_hh.png",
+    "t1_hh.png": "t1_hh.png",
+    "change_hh.png": "change_hh.png",
+    "overlay.png": "overlay.png",
+    "change_t1.png": "change_t1.png",
+    "change_t1_hh.png": "change_t1_hh.png"
+  }
+}

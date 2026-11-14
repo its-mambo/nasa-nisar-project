@@ -2,6 +2,9 @@
 
 // Shared by Results and the Change viewer; preferences belong to a result revision.
 (() => {
+  function isResultRevision(value) {
+    return typeof value === "string" && /^(?:\d+|sample-[0-9a-f]{16})$/.test(value);
+  }
   function createPreferences(storage) {
     const memory = new Map();
     function clean(value) {
@@ -80,7 +83,7 @@
     document.getElementById("projectionName").textContent = `EPSG:${code} · ${crsName(code)}`;
     dialog.showModal();
   }
-  const api = {view:createPreferences(() => globalThis.sessionStorage), crsName, openProjection, createPreferences,captureViewport,restoreViewport};
+  const api = {view:createPreferences(() => globalThis.sessionStorage), crsName, openProjection, createPreferences,captureViewport,restoreViewport,isResultRevision};
   if (typeof window !== "undefined") window.Nisar = api;
   if (typeof module !== "undefined") module.exports = api;
 })();

@@ -5,6 +5,83 @@ and browser features live in `frontend/features/`. The application loads the
 SAR and Qwen models once, then serves the UI and analysis API with FastAPI.
 Run one server process: the loaded models and current pair are shared in memory.
 
+## Start here: live models or saved sample
+
+```bash
+python launch.py
+```
+
+The launcher asks whether this machine can run the models. Answer **no** for a
+machine with less than 16 GB RAM and no GPU. It starts with the saved sample,
+without importing PyTorch, Transformers, NumPy, or HDF5. Answer **yes** to start
+the existing live inference workflow. The launcher defaults to sample mode
+when run without an interactive terminal.
+
+For judges, only the lightweight server dependencies are needed:
+
+```bash
+python -m pip install -r requirements-sample.txt
+python launch.py --mode sample
+```
+
+Open `http://127.0.0.1:8000`. **0 · Try a saved sample** is a highlighted,
+optional step on **Pick an area**. It shows the fixed filenames, ROI, threshold,
+and a preview. Click **Explore saved results** to use the same Results and
+Change viewer, including date switching, grayscale, overlays, zoom, and report
+downloads. The sample is labeled as a saved run. Its inputs and selection
+cannot be edited; live upload, preparation, and inference endpoints are
+disabled in sample mode. Sample playback requires neither the weight bundle
+nor the source `.h5` files.
+
+The requested sample uses these two files from `src/`:
+
+| Date | GCOV filename |
+| --- | --- |
+| Before · T0 | `NISAR_L2_PR_GCOV_023_107_D_067_2005_DHDH_A_20260621T150729_20260621T150804_P05023_N_F_J_001.h5` |
+| After · T1 | `NISAR_L2_PR_GCOV_030_107_D_067_2005_DHDH_A_20260913T150726_20260913T150801_P05023_N_F_J_001.h5` |
+
+The ROI is **left 5323, top 2414, right 11255, bottom 6066** in native T0
+pixels, matching the supplied screenshot. Right and bottom are exclusive:
+**5,932 × 3,652 px**, with **threshold 0.10**. The cache records exact source
+filenames, acquisition metadata, SHA-256 checksums, generation time, model
+settings, measurements, and real model output. JSON and text report exports
+include the sample provenance.
+
+On a machine with the models and source files, generate the sample once:
+
+```bash
+python cache_sample.py
+```
+
+This runs real inference on the fixed pair, ROI, and threshold and writes an
+immutable, checksummed bundle under `samples/judges/`. Later invocations reuse
+the bundle. Use `--refresh` to generate a replacement; the previous bundle
+remains available on disk. The `current.json` pointer changes only after all
+artifacts are saved. Model/device options can be passed through, for example:
+
+```bash
+python cache_sample.py --refresh --sar-device cpu --qwen-device cpu --batch-size 2
+```
+
+An existing one-shot export from this exact pair/ROI can be imported with
+`python cache_sample.py --from-export /path/to/export`. The builder checks ROI,
+threshold, acquisition metadata, and image dimensions before publishing.
+Source checksums identify the supplied inputs; import provenance relies on the
+export having been produced by the documented inference command.
+Malformed structured AI output is labeled unavailable; measured model results
+remain usable. The cache never invents a successful interpretation.
+
+Live model mode also offers the optional saved sample without replacing the
+currently loaded pair or live result:
+
+```bash
+python launch.py --mode model --t0 /path/to/earlier.h5 --t1 /path/to/later.h5
+```
+
+`python inference.py` and `python -m nisar` continue to start live model mode
+directly. Use `--cache-dir /path/to/cache` with the launcher/builder, or
+`--sample-dir /path/to/cache` with `inference.py`, to change the sample location.
+
 ## Project structure
 
 ```text
@@ -14,6 +91,7 @@ nisar/
     imagery/              # GCOV grids, geographic alignment, preview rendering
     analysis/             # Pair/selection workflow and progress estimates
     reporting/            # Measurements, evidence, AI claim contract, exports
+    samples/              # Fixed sample specification, cache builder, playback
   infrastructure/models/  # SAR/Qwen runtimes and weight conversion
 frontend/
   app/                    # Main HTML shell joining selection and results
@@ -22,15 +100,21 @@ frontend/
     change_viewer/        # Before/after comparison and full-image popup
     results/              # Result map, scientific details, CSV/JSON exports
     reporting/            # Evidence and interpretation presentation
+    samples/              # Read-only Step 0 sample details and entry point
   shared/                 # Map viewport/state, navigation styles, icons
 tests/
   analysis/               # Detector, selection, progress, and job API checks
   reporting/              # Evidence contract and report export checks
   app/                    # Browser resource integration checks
+  samples/                # Cache integrity, read-only API, lightweight startup
   frontend/               # JavaScript state, measurement, and export checks
   support.py              # Shared synthetic data, model stubs, ASGI harness
 docs/                     # Architecture guide and report contract
 models/                   # Local model weights (ignored by Git)
+samples/judges/           # Portable saved sample and provenance (included)
+src/                      # Source GCOV pair (ignored by Git)
+launch.py                 # Interactive model/sample startup chooser
+cache_sample.py           # Generate the fixed sample once, then reuse it
 inference.py              # Backward-compatible command entry point
 ```
 

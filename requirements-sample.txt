@@ -1,0 +1,3 @@
+# Lightweight judging mode: no torch, transformers, NumPy, or HDF5 needed.
+fastapi
+uvicorn[standard]
