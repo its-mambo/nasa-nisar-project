@@ -108,9 +108,22 @@ function renderResultsV2(data) {
     setResultText("resultPattern", data.spatial_context?.change_map_description || "No paired sector comparison is available for this selection.");
   }
   setResultText("resultPatternNote", data.interpretation?.source === "visual" ? "AI interpretation is unvalidated. Blue is not a water map." : "Measured SAR values describe change, not its physical cause.");
-  resultsEl("resultViewerLink").href = data.viewer_url || "#";
+  resultsEl("resultViewerLink").disabled = resultRevision() === null;
   showResultMode("change");
 }
+
+// Result revision: the ?v= of the result image URLs (same source as /t0.png?v=… above).
+function resultRevision() {
+  const url = resultData?.images?.["t0.png"];
+  if (!url) return null;
+  const v = new URL(url, location.origin).searchParams.get("v");
+  return /^\d+$/.test(v || "") ? v : null;
+}
+resultsEl("resultViewerLink").addEventListener("click", () => {
+  const rev = resultRevision();
+  if (rev === null) return;
+  window.open(`/viewer?v=${rev}`, "nisar-viewer", "width=1220,height=900");
+});
 
 document.querySelectorAll("[data-result-mode]").forEach(button => button.addEventListener("click", () => showResultMode(button.dataset.resultMode)));
 resultsEl("resultZoomIn").addEventListener("click", () => resultZoom(1.5));
@@ -128,7 +141,7 @@ function showInterpretation(data) {
     p.style.whiteSpace = "pre-wrap";
     p.textContent = data.summary === "" ? "Qwen returned no text." : data.summary;
     root.append(p);
-    resultsEl("interpretationNote").textContent = (data.decoder === "qwen_lora" ? "Qwen + decoder LoRA. " : "Base Qwen. ") + "AI interpretation. The standalone map shows detector flags; the viewer overlays them in blue. " + data.limitation;
+    resultsEl("interpretationNote").textContent = (data.decoder === "qwen_lora" ? "Qwen + decoder LoRA. " : "Base Qwen. ") + "AI interpretation. The standalone map shows detector flags; the Results map overlays them in blue. " + data.limitation;
     return;
   }
   [data.primary,...data.alternatives].forEach((item,i) => {
@@ -260,11 +273,38 @@ function showResultsV2(data) {
   showInterpretation(data.interpretation);
   resultsEl("details").textContent = JSON.stringify(data,null,2);
   resultsEl("pickPage").hidden = true;
+  // "/#results" reopens this tab (used by the Results link on the Change page).
+  if (location.hash !== "#results") history.replaceState(null, "", "/#results");
+  window.scrollTo(0,0);
+}
+function showPickTab() {
+  resultsEl("results").hidden = true;
+  resultsEl("pickPage").hidden = false;
+  if (location.hash) history.replaceState(null, "", "/");
   window.scrollTo(0,0);
 }
 resultsEl("resultsBackToPick").addEventListener("click", () => {
-  resultsEl("results").hidden = true;
-  resultsEl("pickPage").hidden = false;
+  showPickTab();
   setStep(2);
-  window.scrollTo(0,0);
 });
+
+// Open the Results tab from the URL: the latest result is kept by the server.
+async function openResultsFromHash() {
+  if (location.hash !== "#results") return;
+  try {
+    const r = await fetch("/result", {cache: "no-store"});
+    const {result} = r.ok ? await r.json() : {};
+    if (location.hash !== "#results") return;
+    if (result) {
+      showResultsV2(result);
+      setStep(3);
+    } else {
+      showPickTab();
+      status("No analysis result yet. Draw a selection and run the model.");
+    }
+  } catch {
+    showPickTab();
+  }
+}
+window.addEventListener("hashchange", openResultsFromHash);
+window.addEventListener("DOMContentLoaded", openResultsFromHash);

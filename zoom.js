@@ -1,10 +1,15 @@
 "use strict";
 
 class RasterViewport {
-  constructor(canvas, redraw) {
+  // options (all optional, defaults keep the original behaviour):
+  //   wheelZoom: true  -> plain mouse wheel zooms around the cursor (no Ctrl needed)
+  //   upscale:   true  -> "fit" may enlarge small rasters to fill the canvas;
+  //                       max zoom becomes 8x relative to fit (at least 8x absolute)
+  constructor(canvas, redraw, options = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.redraw = redraw;
+    this.options = options;
     this.width = this.height = this.w = this.h = 0;
     this.x = this.y = 0;
     this.scale = this.fitScale = 1;
@@ -14,11 +19,11 @@ class RasterViewport {
 
     canvas.addEventListener("wheel", e => {
       const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? this.h : 1;
-      if (e.ctrlKey) {
+      if (e.ctrlKey || this.options.wheelZoom) {
         e.preventDefault();
         if (!this.width || !this.w) return;
         const [x, y] = this.local(e), [col, row] = this.pixel(x, y);
-        this.scale = Math.max(this.fitScale, Math.min(8,
+        this.scale = Math.max(this.fitScale, Math.min(this.maxScale(),
           this.scale * Math.exp(-Math.max(-240, Math.min(240, e.deltaY * unit)) / 300)));
         this.x = x - col * this.scale;
         this.y = y - row * this.scale;
@@ -40,7 +45,7 @@ class RasterViewport {
     this.height = height;
     this.size();
     // size() returns early when the canvas is unchanged, so refit for the new raster here.
-    if (width && height && this.w && this.h) this.fitScale = Math.min(1, this.w/width, this.h/height);
+    if (width && height && this.w && this.h) this.fitScale = Math.min(this.maxFit(), this.w/width, this.h/height);
     this.scale = this.fitScale;
     this.x = this.y = Infinity;
     this.clamp();
@@ -60,7 +65,7 @@ class RasterViewport {
     this.w = w;
     this.h = h;
     if (this.width && this.height) {
-      this.fitScale = Math.min(1, w/this.width, h/this.height);
+      this.fitScale = Math.min(this.maxFit(), w/this.width, h/this.height);
       this.scale = fitted ? this.fitScale : Math.max(this.fitScale, this.scale);
       this.x = w/2 - col*this.scale;
       this.y = h/2 - row*this.scale;
@@ -87,10 +92,24 @@ class RasterViewport {
     return [Math.max(0,x), Math.max(0,y), Math.min(this.width,X), Math.min(this.height,Y)];
   }
 
+  maxFit() { return this.options.upscale ? Infinity : 1; }
+
+  maxScale() { return this.options.upscale ? Math.max(8, this.fitScale * 8) : 8; }
+
+  zoomAt(factor, x, y) { this.zoomBy(factor, x, y); }
+
+  // Back to "fit" and centred (clamp() centres a raster that fits the canvas).
+  reset() {
+    this.scale = this.fitScale;
+    this.x = this.y = Infinity;
+    this.clamp();
+    this.invalidate();
+  }
+
   zoomBy(factor, x = this.w/2, y = this.h/2) {
     if (!this.width || !this.w) return;
     const [col, row] = this.pixel(x, y);
-    this.scale = Math.max(this.fitScale, Math.min(8, this.scale * factor));
+    this.scale = Math.max(this.fitScale, Math.min(this.maxScale(), this.scale * factor));
     this.x = x - col * this.scale;
     this.y = y - row * this.scale;
     this.clamp();

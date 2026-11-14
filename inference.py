@@ -91,6 +91,7 @@ class Demo:
         self.lock = threading.Lock()
         self.counter = 0
         self.result_revision = None
+        self.last_result = None
         self.decoder_trace = None
         self.local_paths = {}
         self.pending_uploads = {}
@@ -306,6 +307,8 @@ class Demo:
         result["images"] = {n: f"/{n}?v={self.counter}" for n in NAMES}
         result["viewer_url"] = f"/viewer?v={self.counter}"
         result["timing_s"]["total"]=round(perf_counter()-started,3)
+        # Kept so /result can reopen the Results tab (e.g. from the Change page).
+        self.last_result = result
         return result
 
 

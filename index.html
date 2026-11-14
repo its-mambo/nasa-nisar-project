@@ -149,7 +149,7 @@
 <section id="results" class="results-v2" hidden aria-label="Change detection results">
   <header class="results-appbar">
     <div class="results-brand"><span class="results-brand-mark" aria-hidden="true"></span>SAR Change Explorer</div>
-    <nav class="results-nav" aria-label="Analysis steps"><button id="resultsBackToPick" type="button">Pick</button><span>Change</span><span class="active" aria-current="page">Results</span></nav>
+    <nav class="results-nav" aria-label="Analysis steps"><button id="resultsBackToPick" type="button">Pick</button><a href="/change">Change</a><span class="active" aria-current="page">Results</span></nav>
     <div class="results-appbar-end"><span>Help</span><span>Account</span></div>
   </header>
   <div class="results-shell">
@@ -172,7 +172,7 @@
         </div>
         <span class="results-map-label">DETECTOR OVERLAY</span>
         <div class="results-map-legend"><span><i></i>Detector-flagged change</span><span><i class="baseline"></i>Blue intensity = |ΔHH|</span><span><i class="unmarked"></i>Unmarked ≠ confirmed stable</span></div>
-        <div class="results-map-foot"><a id="resultViewerLink" target="_blank" rel="noopener">Open full viewer ↗</a><span id="resultMapScale"></span></div>
+        <div class="results-map-foot"><button id="resultViewerLink" type="button" disabled>Open full viewer ↗</button><span id="resultMapScale"></span></div>
       </div>
       <div class="results-sidebar">
         <section class="results-card" aria-labelledby="resultSummaryTitle">

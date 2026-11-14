@@ -11,10 +11,14 @@ from starlette.concurrency import run_in_threadpool
 
 
 MAX_CHUNK = 8 * 1024 * 1024
-STATIC_FILES = {"index.html": "text/html", "viewer.html": "text/html",
+STATIC_FILES = {"index.html": "text/html", "change.html": "text/html",
                 "zoom.js": "text/javascript", "pick.js": "text/javascript",
                 "results.js": "text/javascript", "pick.css": "text/css",
-                "results.css": "text/css"}
+                "results.css": "text/css", "change.css": "text/css",
+                "change.js": "text/javascript"}
+# Only these icon files may be served from /icons/ (no arbitrary paths).
+ICON_FILES = frozenset({"zoom-in", "zoom-out", "recenter", "fullscreen", "exit-fullscreen",
+                        "split-handle", "swatch", "swatch-selected", "dot-t0", "dot-t1"})
 
 
 def error(code, message):
@@ -48,12 +52,18 @@ def create_app(demo, root: Path, names):
     def index():
         return FileResponse(root / "index.html", media_type="text/html")
 
+    @app.get("/change")
+    def change():
+        return FileResponse(root / "change.html", media_type="text/html")
+
+    # Popup opened by "Open full viewer" on Results: viewer.html from the project root,
+    # read from disk on every request (no cached copy, no inline HTML).
     @app.get("/viewer")
     def viewer():
-        return FileResponse(root / "viewer.html", media_type="text/html")
+        return FileResponse(root / "viewer.html", media_type="text/html; charset=utf-8")
 
     for filename, media_type in STATIC_FILES.items():
-        if filename in {"index.html", "viewer.html"}:
+        if filename in {"index.html", "change.html"}:
             continue
         def static_route(name, content_type):
             def file_response():
@@ -62,10 +72,24 @@ def create_app(demo, root: Path, names):
         app.add_api_route("/" + filename, static_route(filename, media_type),
                           methods=["GET"], include_in_schema=False)
 
+    @app.get("/icons/{name}.svg", include_in_schema=False)
+    def icon(name: str):
+        if name not in ICON_FILES:
+            return error(404, "Icon not found")
+        return FileResponse(root / "icons" / (name + ".svg"), media_type="image/svg+xml")
+
     @app.get("/pair")
     def pair():
         with demo.lock:
-            return {"pair": demo.info}
+            # result_revision: latest analysis result (None until a model run finishes).
+            return {"pair": demo.info, "result_revision": demo.result_revision}
+
+    @app.get("/result")
+    def result():
+        with demo.lock:
+            revision = demo.result_revision
+            data = getattr(demo, "last_result", None) if revision is not None else None
+        return {"result": data, "result_revision": revision}
 
     @app.get("/decoder-inputs")
     def decoder_inputs(v: str = ""):

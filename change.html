@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explore change · SAR Change Explorer</title>
+<link rel="stylesheet" href="/change.css">
+
+<header class="nav">
+  <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">◇</span>SAR Change Explorer</a>
+  <span class="nav-divider" aria-hidden="true"></span>
+  <nav class="tabs" aria-label="Analysis steps">
+    <a href="/">Pick</a>
+    <a class="active" href="/change" aria-current="page">Change</a>
+    <a href="/#results">Results</a>
+  </nav>
+</header>
+
+<main class="page">
+  <div class="intro">
+    <h1>Explore change</h1>
+    <p>Drag the divider to compare the same area at T0 and T1.</p>
+  </div>
+
+  <section class="change" id="change" data-mode="split" aria-label="Change comparison">
+    <canvas id="image" role="img" aria-label="Split view: T0 left, T1 right"></canvas>
+
+    <div class="split" id="split" aria-hidden="true"><span class="split-line"></span></div>
+    <div class="split-handle" id="handle" role="slider" tabindex="0" aria-label="Divider position"
+         aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-valuetext="50%">
+      <img src="/icons/split-handle.svg" width="55" height="55" alt="">
+    </div>
+
+    <div class="pill pill-before" id="pillBefore"><img src="/icons/dot-t0.svg" width="10" height="10" alt=""><span id="pillBeforeText">Before · T0</span></div>
+    <div class="pill pill-after" id="pillAfter"><img src="/icons/dot-t1.svg" width="10" height="10" alt=""><span id="pillAfterText">After · T1</span></div>
+
+    <div class="ctl-row ctl-top-left">
+      <div class="view-switch" role="group" aria-label="View">
+        <button type="button" data-view="t0" aria-pressed="false" aria-label="Show T0 (key 1)">T0</button>
+        <button type="button" data-view="t1" aria-pressed="false" aria-label="Show T1 (key 2)">T1</button>
+        <button type="button" data-view="split" aria-pressed="true" aria-label="Split view (key 3)">Split view</button>
+      </div>
+      <button type="button" class="overlay-toggle" id="overlay" role="switch" aria-checked="true"
+              aria-label="Colour view; off shows grayscale">
+        <img src="/icons/swatch.svg" width="14" height="14" alt="">
+        <span>Change overlay</span>
+        <span class="switch" aria-hidden="true"><span class="knob"></span></span>
+      </button>
+    </div>
+
+    <div class="zoom" role="group" aria-label="Zoom">
+      <button type="button" id="zoomIn" aria-label="Zoom in (+)"><img src="/icons/zoom-in.svg" width="25" height="25" alt=""></button>
+      <button type="button" id="zoomOut" aria-label="Zoom out (−)"><img src="/icons/zoom-out.svg" width="25" height="25" alt=""></button>
+      <button type="button" id="recenter" class="fs-only" aria-label="Recenter (0)"><img src="/icons/recenter.svg" width="25" height="25" alt=""></button>
+    </div>
+
+    <div class="ctl-row ctl-top-right">
+      <span class="chip">NISAR L2 GCOV</span>
+      <button type="button" class="btn-white" id="fullscreen" aria-label="Full screen (F)">
+        <img id="fullscreenIcon" src="/icons/fullscreen.svg" width="18" height="18" alt="">
+        <span id="fullscreenText">Full screen</span>
+      </button>
+    </div>
+
+    <div class="legend">
+      <div><img src="/icons/swatch-selected.svg" width="24" height="14" alt="">Selected area</div>
+    </div>
+
+    <div class="hint">Scroll to zoom · drag to pan · drag ‹ › to compare</div>
+    <div class="esc-hint fs-only" aria-hidden="true">Press Esc to exit</div>
+
+    <p class="message" id="message" role="status">Loading images…</p>
+  </section>
+</main>
+
+<script src="/zoom.js"></script>
+<script src="/change.js" defer></script>
+</html>
