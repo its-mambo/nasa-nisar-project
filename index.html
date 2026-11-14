@@ -2,16 +2,147 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NISAR crop demo</title>
+<title>NISAR SAR Change Explorer</title>
 <style>
+  :root {
+    --bg: #f4f6f7; --card: #fff; --line: #e1e6e8; --soft: #eef3f3;
+    --ink: #14212b; --muted: #5d6b74; --faint: #8b979e;
+    --teal: #0d5c63; --teal-ink: #0a4a50; --teal-soft: #e3f0f0;
+    --map: #161d29; --amber: #ffc81e; --warn: #9a5b00; --warn-soft: #fdf4e3;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  h1, h2, h3, h4 { margin: 0; }
+
+  /* Top bar */
+  .topbar { display: flex; align-items: center; gap: 2rem; padding: .75rem 1.5rem; background: var(--card); border-bottom: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: .55rem; font-weight: 700; letter-spacing: .01em; }
+  .brand-mark { width: 22px; height: 22px; border-radius: 6px; background: var(--teal); display: grid; place-items: center; }
+  .brand-mark::after { content: ""; width: 10px; height: 10px; border: 2px solid #fff; border-radius: 50%; }
+  .steps { display: flex; gap: 1.4rem; list-style: none; margin: 0; padding: 0; color: var(--faint); }
+  .steps li { display: flex; align-items: center; gap: .4rem; }
+  .steps li span { width: 1.35rem; height: 1.35rem; border-radius: 50%; border: 1px solid currentColor; display: grid; place-items: center; font-size: .75rem; }
+  .steps li.done { color: var(--muted); }
+  .steps li.active { color: var(--teal); font-weight: 600; }
+  .steps li.active span { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .topbar .spacer { flex: 1; }
+  .server-state { color: var(--muted); font-size: .85rem; display: flex; align-items: center; gap: .4rem; }
+  .server-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #2f9e6e; }
+
+  main { max-width: 1440px; margin: 0 auto; padding: 1.4rem 1.5rem 2.5rem; }
+
+  /* Page header */
+  .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .page-head h1 { font-size: 1.35rem; display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+  .tag { font-size: .78rem; font-weight: 500; color: var(--teal-ink); background: var(--teal-soft); padding: .12rem .5rem; border-radius: 99px; }
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; margin-top: .45rem; color: var(--muted); font-size: .85rem; }
+  .chips b { color: var(--ink); font-weight: 600; }
+  #status { margin: .5rem 0 0; color: var(--muted); font-size: .85rem; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; padding: .5rem .9rem; border-radius: 8px; border: 1px solid var(--line); background: var(--card); cursor: pointer; font-weight: 500; }
+  .btn:hover:not(:disabled) { border-color: #c5ced2; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn-primary { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--teal-ink); border-color: var(--teal-ink); }
+  .link { background: none; border: 0; padding: 0; color: var(--teal); cursor: pointer; font-weight: 500; font-size: .85rem; }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1rem; align-items: start; }
+  .main-col { display: grid; gap: 1rem; min-width: 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .85rem 1rem .6rem; }
+  .card-head h2 { font-size: .95rem; }
+  .card-body { padding: 0 1rem 1rem; }
+
+  /* Map */
+  .map { position: relative; border-radius: var(--radius); overflow: hidden; background: var(--map); height: clamp(360px, 64vh, 780px); }
+  #preview { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+  #preview.panning { cursor: grabbing; }
+  .map-ui { position: absolute; display: flex; gap: .4rem; align-items: center; }
+  .map-toolbar { top: .75rem; left: .75rem; right: .75rem; flex-wrap: wrap; pointer-events: none; }
+  .map-toolbar > * { pointer-events: auto; }
+  .seg { display: inline-flex; padding: 3px; gap: 2px; background: var(--card); border-radius: 8px; border: 1px solid var(--line); }
+  .seg button { border: 0; background: none; padding: .3rem .7rem; border-radius: 6px; cursor: pointer; font-size: .82rem; color: var(--muted); font-weight: 500; }
+  .seg button[aria-pressed="true"] { background: var(--teal); color: #fff; }
+  .map-hint { margin-left: auto; color: #c9d2db; font-size: .78rem; background: rgba(15,20,30,.65); padding: .3rem .6rem; border-radius: 6px; }
+  .map-hint kbd { font: inherit; font-weight: 600; color: #fff; }
+  .zoom { top: 3.6rem; left: .75rem; flex-direction: column; gap: 0; background: var(--card); border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
+  .zoom button { width: 32px; height: 32px; border: 0; background: none; cursor: pointer; font-size: 1.05rem; line-height: 1; }
+  .zoom button + button { border-top: 1px solid var(--line); }
+  .zoom button:hover { background: var(--soft); }
+  .legend { left: .75rem; bottom: .75rem; flex-direction: column; align-items: flex-start; gap: .3rem; background: var(--card); border-radius: 8px; padding: .55rem .7rem; font-size: .78rem; color: var(--muted); }
+  .legend div { display: flex; align-items: center; gap: .45rem; }
+  .sw { width: 18px; height: 11px; border-radius: 2px; flex: none; }
+  .sw-foot { border: 1.5px dashed #556270; }
+  .sw-sel { border: 1.5px solid var(--amber); background: rgba(255,200,30,.25); }
+  .sw-rg { background: linear-gradient(90deg, #d8423a, #c9b23a, #3fbf5a); }
+  .sw-hh { background: linear-gradient(90deg, #111, #eee); }
+  .readout { right: .75rem; bottom: .75rem; background: var(--card); border-radius: 8px; padding: .45rem .7rem; font: .78rem/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--muted); }
+  .readout b { color: var(--ink); font-weight: 600; }
+
+  /* Empty / upload state */
+  .map-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 1.5rem; background: radial-gradient(circle at 50% 40%, #223044, var(--map)); }
+  #upload { width: min(100%, 440px); background: var(--card); border-radius: var(--radius); padding: 1.25rem; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  #upload h2 { font-size: 1.05rem; }
+  #upload p { margin: .3rem 0 1rem; color: var(--muted); font-size: .87rem; }
+  .file { display: block; margin-bottom: .75rem; }
+  .file span { display: block; font-weight: 600; font-size: .85rem; margin-bottom: .25rem; }
+  .file input { width: 100%; padding: .45rem; border: 1px dashed #c5ced2; border-radius: 8px; background: var(--soft); font-size: .82rem; }
+  #upload .actions { display: flex; gap: .5rem; margin-top: .4rem; }
+  #upload .actions .btn-primary { flex: 1; }
+  #uploadProgress { margin-top: .8rem; font-size: .82rem; color: var(--muted); }
+  #uploadProgress progress { width: 100%; height: 8px; accent-color: var(--teal); }
+
+  /* Pair details */
+  .pair-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .75rem; }
+  .pair-col { background: var(--soft); border-radius: 8px; padding: .7rem .8rem; min-width: 0; }
+  .pair-col h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); display: flex; align-items: center; gap: .4rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .pair-col .big { font-weight: 600; margin: .3rem 0 .15rem; overflow-wrap: anywhere; }
+  .pair-col .small { color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
+  #warnings { margin: .75rem 0 0; padding: 0; list-style: none; display: grid; gap: .35rem; }
+  #warnings li { background: var(--warn-soft); color: var(--warn); border-radius: 6px; padding: .4rem .65rem; font-size: .82rem; }
+  #warnings li.ok { background: var(--teal-soft); color: var(--teal-ink); }
+
+  /* Sidebar */
+  #infer { display: grid; gap: 1rem; position: sticky; top: 1rem; }
+  .side-seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; background: var(--soft); border-color: transparent; }
+  .side-seg button { padding: .42rem; }
+  .callout { margin-top: .75rem; background: var(--soft); border-radius: 8px; padding: .6rem .7rem; font-size: .82rem; color: var(--muted); }
+  .coords { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .75rem; }
+  .coords label { font-size: .75rem; color: var(--muted); }
+  .coords input { display: block; width: 100%; margin-top: .15rem; padding: .4rem .5rem; border: 1px solid var(--line); border-radius: 6px; font-variant-numeric: tabular-nums; }
+  .coords input:focus { outline: 2px solid var(--teal-soft); border-color: var(--teal); }
+  .kv { margin: .85rem 0 0; display: grid; gap: .45rem; }
+  .kv div { display: flex; justify-content: space-between; gap: 1rem; font-size: .85rem; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .tile { background: var(--soft); border-radius: 8px; padding: .55rem .7rem; }
+  .tile b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  .tile span { font-size: .75rem; color: var(--muted); }
+  .pill { font-size: .72rem; font-weight: 600; color: var(--teal-ink); border: 1px solid #b9d6d7; padding: .1rem .45rem; border-radius: 99px; }
+  .run { display: grid; gap: .4rem; }
+  .run .btn { padding: .8rem 1rem; font-size: 1rem; font-weight: 600; }
+  .run p { margin: 0; text-align: center; font-size: .78rem; color: var(--muted); }
+
+  /* Results */
+  #results { margin-top: 1.25rem; padding: 1.25rem 1.4rem; }
+  #results h2 { font-size: 1.15rem; margin-bottom: .4rem; }
+  #area { color: var(--muted); font-size: .85rem; margin: 0 0 .4rem; }
+  #label { font-size: 1.05rem; font-weight: 600; margin: 0 0 .9rem; }
+  #openViewer { text-decoration: none; }
   #report { max-width: 78ch; line-height: 1.55; }
-  #interpretation { border-left: 3px solid #64748b; padding-left: 1rem; margin: 1.4rem 0; }
-  #openViewer { display: inline-block; padding: .7rem 1rem; font: 600 1.1rem system-ui; border: 1px solid; border-radius: .4rem; }
-  #preview { display:block; width:min(100%, 1400px); height:clamp(320px, 72vh, 950px); background:#171b22; touch-action:none; cursor:crosshair; }
-  #preview.panning { cursor:grabbing; }
-  #decoderInputs { margin: 1rem 0; }
-  #decoderInputs summary { cursor: pointer; font-weight: 600; }
-  #decoderInputs pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 95ch; }
+  #report h3 { margin: 1.2rem 0 .4rem; font-size: 1rem; }
+  #report h4 { margin: .9rem 0 .2rem; font-size: .92rem; }
+  #report p { margin: .2rem 0; }
+  #interpretation { border-left: 3px solid var(--teal); padding-left: 1rem; margin: 1.4rem 0; }
+  #interpretationNote { color: var(--muted); font-size: .85rem; }
+  #results details { margin: 1rem 0; }
+  #results summary { cursor: pointer; font-weight: 600; }
+  #results pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 95ch; font-size: .8rem; background: var(--soft); padding: .75rem; border-radius: 8px; }
   .decoder-panels { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%, 180px),1fr)); gap: 1rem; max-width: 52rem; }
   .decoder-panels figure { margin: 0; }
   .decoder-panels figcaption { margin-top: .35rem; font: .9rem/1.4 system-ui; }
@@ -20,63 +151,178 @@
   .decoder-window { position: absolute; box-sizing: border-box; border: 2px solid white; outline: 1px solid #161616; pointer-events: none; }
   .decoder-window span { background: #161616; color: white; padding: 0 .25rem; font: .8rem system-ui; }
   .decoder-panels.hide-windows .decoder-window { display: none; }
+
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; }
+    #infer { position: static; }
+  }
+  @media (max-width: 640px) {
+    .topbar { flex-wrap: wrap; gap: .6rem 1.2rem; padding: .7rem 1rem; }
+    main { padding: 1rem; }
+    .pair-grid { grid-template-columns: 1fr; }
+    .map-hint { display: none; }
+  }
 </style>
-<h1>NISAR change detection</h1>
-<form id="upload">
-  <fieldset>
-    <legend>Load a NISAR pair</legend>
-    <p>Choose two GCOV files from this device. The server needs no file paths at startup.</p>
-    <p><label for="t0">T0 — earlier image</label><br>
-      <input id="t0" name="t0" type="file" accept=".h5,.hdf5" required></p>
-    <p><label for="t1">T1 — later image</label><br>
-      <input id="t1" name="t1" type="file" accept=".h5,.hdf5" required></p>
-    <button type="submit">Upload and prepare</button>
-    <div id="uploadProgress" hidden>
-      <label for="transferProgress">Pair upload progress</label>
-      <progress id="transferProgress" value="0" max="1"></progress>
-      <span id="transferPercent">0%</span>
+
+<header class="topbar">
+  <div class="brand"><span class="brand-mark" aria-hidden="true"></span>NISAR SAR Change Explorer</div>
+  <ol class="steps" id="steps">
+    <li data-step="1"><span>1</span>Load pair</li>
+    <li data-step="2"><span>2</span>Pick area</li>
+    <li data-step="3"><span>3</span>Results</li>
+  </ol>
+  <div class="spacer"></div>
+  <div class="server-state">Local demo server</div>
+</header>
+
+<main>
+  <div class="page-head">
+    <div>
+      <h1>Pick a change area <span class="tag" id="crsTag" hidden></span></h1>
+      <div class="chips" id="chips"><span>Load a T0 / T1 L-SAR GCOV pair to begin.</span></div>
+      <p id="status" role="status" aria-live="polite">Choose two L-SAR GCOV products.</p>
     </div>
-  </fieldset>
-</form>
-<p id="status" role="status" aria-live="polite">Choose two L-SAR GCOV products.</p>
-<section id="select" hidden>
-  <p>Drag a box inside the white common footprint. For exact selection, edit the native T0 pixel coordinates below.</p>
-  <p><strong>Ctrl + mouse wheel</strong> to zoom. Drag with the middle mouse button to pan.</p>
-  <p><label for="previewMode">Preview:</label>
-    <select id="previewMode">
-      <option value="rg">HH red / HV green</option>
-      <option value="hh">HH grayscale</option>
-    </select></p>
-  <canvas id="preview" aria-label="T0 radar preview"></canvas>
-  <form id="infer">
-    <p><label>Left <input id="left" type="number" step="1" required></label>
-       <label>Top <input id="top" type="number" step="1" required></label>
-       <label>Right <input id="right" type="number" step="1" required></label>
-       <label>Bottom <input id="bottom" type="number" step="1" required></label></p>
-    <button>Run model on selection</button>
-  </form>
-  <pre id="pairInfo"></pre>
-</section>
-<section id="results" hidden>
-  <h2>Selected area</h2>
-  <p id="area"></p>
-  <p id="label"></p>
-  <p><a id="openViewer" target="_blank" rel="noopener">Open image viewer ↗</a></p>
-  <details id="decoderInputs" hidden>
-    <summary>Inspect decoder inputs</summary>
-    <div id="decoderBody"></div>
-  </details>
-  <div id="report">
-    <section id="interpretation">
-      <h3>What might explain the change?</h3>
-      <div id="hypotheses"></div>
-      <p id="interpretationNote"></p>
-    </section>
-    <h3>Measured report</h3>
-    <div id="reportSections"></div>
+    <button class="btn" id="newPair" type="button" hidden>Load new pair</button>
   </div>
-  <details><summary>Metadata and measurements</summary><pre id="details"></pre></details>
-</section>
+
+  <div class="layout">
+    <div class="main-col">
+      <div class="map">
+        <canvas id="preview" aria-label="T0 radar preview"></canvas>
+        <div id="mapUi" hidden>
+          <div class="map-ui map-toolbar">
+            <div class="seg" role="group" aria-label="Preview">
+              <button type="button" data-mode="rg" aria-pressed="true">HH / HV colour</button>
+              <button type="button" data-mode="hh" aria-pressed="false">HH grayscale</button>
+            </div>
+            <div class="map-hint">Drag to select · <kbd>Ctrl</kbd> + wheel to zoom · middle-drag to pan</div>
+          </div>
+          <div class="map-ui zoom">
+            <button type="button" id="zoomIn" aria-label="Zoom in">+</button>
+            <button type="button" id="zoomOut" aria-label="Zoom out">−</button>
+            <button type="button" id="zoomFit" aria-label="Fit to view">⤢</button>
+          </div>
+          <div class="map-ui legend">
+            <div><span class="sw sw-foot"></span>Common T0 ∩ T1 footprint</div>
+            <div><span class="sw sw-sel"></span>Selection</div>
+            <div id="legendRamp"><span class="sw sw-rg"></span>HH red · HV green</div>
+          </div>
+          <div class="map-ui readout" id="readout">Cursor <b>—</b></div>
+        </div>
+        <div class="map-empty" id="uploadPanel">
+          <form id="upload">
+            <h2>Load a NISAR pair</h2>
+            <p>Choose two GCOV files from this device. They are uploaded to the local demo server.</p>
+            <label class="file"><span>T0 — earlier image</span>
+              <input id="t0" name="t0" type="file" accept=".h5,.hdf5" required></label>
+            <label class="file"><span>T1 — later image</span>
+              <input id="t1" name="t1" type="file" accept=".h5,.hdf5" required></label>
+            <div class="actions">
+              <button class="btn btn-primary" type="submit">Upload and prepare</button>
+              <button class="btn" type="button" id="cancelUpload" hidden>Cancel</button>
+            </div>
+            <div id="uploadProgress" hidden>
+              <label for="transferProgress">Pair upload progress · <span id="transferPercent">0%</span></label>
+              <progress id="transferProgress" value="0" max="1"></progress>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <section class="card" id="pairCard" hidden>
+        <div class="card-head"><h2>Pair details</h2><span class="pill" id="freqPill"></span></div>
+        <div class="card-body">
+          <div class="pair-grid">
+            <div class="pair-col">
+              <h3><span class="dot" style="background:#4f7cff"></span>T0 · earlier</h3>
+              <div class="big" id="t0Date">—</div>
+              <div class="small" id="t0Meta"></div>
+            </div>
+            <div class="pair-col">
+              <h3><span class="dot" style="background:#2f9e6e"></span>T1 · later</h3>
+              <div class="big" id="t1Date">—</div>
+              <div class="small" id="t1Meta"></div>
+            </div>
+            <div class="pair-col">
+              <h3><span class="dot" style="background:var(--amber)"></span>Common footprint</h3>
+              <div class="big" id="overlapSize">—</div>
+              <div class="small" id="overlapMeta"></div>
+            </div>
+          </div>
+          <ul id="warnings"></ul>
+        </div>
+      </section>
+    </div>
+
+    <form id="infer">
+      <section class="card">
+        <div class="card-head"><h2>Selection</h2><button type="button" class="link" id="clearBox">Clear</button></div>
+        <div class="card-body">
+          <div class="seg side-seg" role="group" aria-label="Selection method">
+            <button type="button" data-method="draw" aria-pressed="true">Draw on map</button>
+            <button type="button" data-method="coords" aria-pressed="false">Coordinates</button>
+          </div>
+          <div class="callout" id="drawHint">Drag a box inside the dashed common footprint. Switch to <b>Coordinates</b> to set native T0 pixels exactly.</div>
+          <div class="coords" id="coords" hidden>
+            <label>Left (x₀)<input id="left" type="number" step="1" required></label>
+            <label>Top (y₀)<input id="top" type="number" step="1" required></label>
+            <label>Right (x₁)<input id="right" type="number" step="1" required></label>
+            <label>Bottom (y₁)<input id="bottom" type="number" step="1" required></label>
+          </div>
+          <dl class="kv">
+            <div><dt>Native size</dt><dd id="selPx">—</dd></div>
+            <div><dt>Model grid</dt><dd id="selCells">—</dd></div>
+            <div><dt>Projected area</dt><dd id="selArea">—</dd></div>
+            <div><dt>Share of footprint</dt><dd id="selShare">—</dd></div>
+            <div><dt>Box (x₀, y₀ → x₁, y₁)</dt><dd id="selBox">—</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Model</h2><span class="pill">Change detector + Qwen report</span></div>
+        <div class="card-body">
+          <div class="tiles">
+            <div class="tile"><b id="nativeSpacing">—</b><span>Native spacing</span></div>
+            <div class="tile"><b id="modelSpacing">—</b><span>Model spacing</span></div>
+          </div>
+          <div class="callout">Native T0 and T1 pixels are averaged to the model grid, then the detector flags changes and Qwen ranks possible explanations.</div>
+          <dl class="kv">
+            <div><dt>Grid</dt><dd id="gridSize">—</dd></div>
+            <div><dt>CRS</dt><dd id="crs">—</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <div class="run">
+        <button class="btn btn-primary" id="runBtn">Run model on selection →</button>
+        <p id="runNote">Draw a selection to enable the model run.</p>
+      </div>
+    </form>
+  </div>
+
+  <section id="results" class="card" hidden>
+    <h2>Selected area</h2>
+    <p id="area"></p>
+    <p id="label"></p>
+    <p><a id="openViewer" class="btn btn-primary" target="_blank" rel="noopener">Open image viewer ↗</a></p>
+    <details id="decoderInputs" hidden>
+      <summary>Inspect decoder inputs</summary>
+      <div id="decoderBody"></div>
+    </details>
+    <div id="report">
+      <section id="interpretation">
+        <h3>What might explain the change?</h3>
+        <div id="hypotheses"></div>
+        <p id="interpretationNote"></p>
+      </section>
+      <h3>Measured report</h3>
+      <div id="reportSections"></div>
+    </div>
+    <details><summary>Metadata and measurements</summary><pre id="details"></pre></details>
+  </section>
+</main>
+
 <script src="/zoom.js"></script>
 <script>
 "use strict";
@@ -90,9 +336,17 @@ const view = new RasterViewport(preview, paint);
 view.enableDrag(1);
 
 function status(message) { $("status").textContent = message; }
+function setStep(n) {
+  for (const li of $("steps").children) {
+    const s = Number(li.dataset.step);
+    li.classList.toggle("active", s === n);
+    li.classList.toggle("done", s < n);
+  }
+}
 function setBusy(value) {
   busy = value;
-  for (const el of document.querySelectorAll("form input,form button")) el.disabled = value;
+  for (const el of document.querySelectorAll("form input,form button,#newPair")) el.disabled = value;
+  if (!value) updateSelection();
 }
 async function post(path,body=null,extra={}) {
   const headers = {"X-Nisar-Demo":"1",...extra};
@@ -138,7 +392,36 @@ function setBox(box) {
   fields.forEach((f,i) => { f.value = box[i]; });
   draw();
 }
-function draw() { view.invalidate(); }
+function draw() { view.invalidate(); updateSelection(); }
+
+const fmt = n => n.toLocaleString("en-US");
+function currentBox() {
+  const box = fields.map(f => f.valueAsNumber);
+  return box.every(Number.isFinite) && box[2] > box[0] && box[3] > box[1] ? box : null;
+}
+function updateSelection() {
+  const box = state && currentBox();
+  const ids = ["selPx","selCells","selArea","selShare","selBox"];
+  if (!box) {
+    ids.forEach(id => { $(id).textContent = "—"; });
+    $("runBtn").disabled = true;
+    $("runNote").textContent = state ? "Draw a selection to enable the model run." : "Load a pair first.";
+    return;
+  }
+  const [x0,y0,x1,y1] = box, w = x1-x0, h = y1-y0;
+  const [dx,dy] = state.native_spacing_m.map(Math.abs);
+  const [ox,oy,OX,OY] = state.overlap;
+  const inside = ox<=x0 && oy<=y0 && x1<=OX && y1<=OY;
+  $("selPx").textContent = `${fmt(w)} × ${fmt(h)} px`;
+  $("selCells").textContent = `≈ ${fmt(Math.floor(w*dx/state.model_spacing_m))} × ${fmt(Math.floor(h*dy/state.model_spacing_m))} cells`;
+  $("selArea").textContent = `${(w*h*dx*dy/1e6).toFixed(2)} km²`;
+  $("selShare").textContent = `${(100*w*h/((OX-ox)*(OY-oy))).toFixed(1)} %`;
+  $("selBox").textContent = `${x0}, ${y0} → ${x1}, ${y1}`;
+  $("runBtn").disabled = busy || !inside;
+  $("runNote").textContent = inside ? "Reads native pixels from both dates on the local server."
+                                    : "Selection must stay inside the dashed common footprint.";
+}
+
 function paint(ctx) {
   if (!photo || !state) return;
   const s = state.stride;
@@ -148,13 +431,29 @@ function paint(ctx) {
   paintTiles(ctx);
   ctx.restore();
   const [x,y,X,Y] = state.overlap;
-  ctx.strokeStyle = "white"; ctx.lineWidth = 2/view.scale;
+  ctx.save();
+  ctx.strokeStyle = "white"; ctx.lineWidth = 1.5/view.scale;
+  ctx.setLineDash([6/view.scale,5/view.scale]);
   ctx.strokeRect(x,y,X-x,Y-y);
-  const [a,b,c,d] = fields.map(f => f.valueAsNumber);
-  if (![a,b,c,d].every(Number.isFinite)) return;
+  ctx.restore();
+  const box = currentBox();
+  if (!box) return;
+  const [a,b,c,d] = box;
   ctx.fillStyle = "rgba(255,200,30,0.2)"; ctx.strokeStyle = "#ffc81e";
+  ctx.lineWidth = 2/view.scale;
   ctx.fillRect(a,b,c-a,d-b);
   ctx.strokeRect(a,b,c-a,d-b);
+  // Corner handles and a size label, drawn at screen scale.
+  const k = 1/view.scale, hs = 6*k;
+  ctx.fillStyle = "#fff";
+  for (const [px,py] of [[a,b],[c,b],[a,d],[c,d]]) ctx.fillRect(px-hs/2,py-hs/2,hs,hs);
+  const text = `Selection · ${fmt(c-a)} × ${fmt(d-b)} px`;
+  ctx.font = `600 ${12*k}px system-ui, sans-serif`;
+  const tw = ctx.measureText(text).width + 12*k;
+  ctx.fillStyle = "#ffc81e";
+  ctx.fillRect(a,b-20*k,tw,18*k);
+  ctx.fillStyle = "#14212b";
+  ctx.fillText(text,a+6*k,b-7*k);
 }
 function paintTiles(ctx) {
   const step = 2**Math.max(0,Math.floor(Math.log2(1/view.scale)));
@@ -186,7 +485,7 @@ function paintTiles(ctx) {
     image.src = url;
     image.decode().then(() => { tile.ready = true; }, () => {
       // Keep the overview visible if a tile is unavailable.
-    }).finally(() => { inFlight--; draw(); });
+    }).finally(() => { inFlight--; view.invalidate(); });
   }
   while (tiles.size > 64) tiles.delete(tiles.keys().next().value);
 }
@@ -207,7 +506,15 @@ function drag(e) {
   setBox([Math.floor(Math.min(x,start[0])),Math.floor(Math.min(y,start[1])),
           Math.ceil(Math.max(x,start[0])),Math.ceil(Math.max(y,start[1]))]);
 }
-preview.addEventListener("pointermove",drag);
+preview.addEventListener("pointermove",e => {
+  drag(e);
+  if (!state) return;
+  const [x,y] = view.pixel(...view.local(e));
+  const ok = x>=0 && y>=0 && x<state.width && y<state.height;
+  $("readout").innerHTML = ok ? `x <b>${fmt(Math.floor(x))}</b> · y <b>${fmt(Math.floor(y))}</b> px · zoom <b>${(view.scale/view.fitScale).toFixed(1)}×</b>`
+                              : "Cursor <b>—</b>";
+});
+preview.addEventListener("pointerleave",() => { $("readout").innerHTML = "Cursor <b>—</b>"; });
 preview.addEventListener("pointerup",e => {
   if (e.pointerId === pointer) { drag(e); start = null; pointer = null; }
 });
@@ -216,38 +523,118 @@ preview.addEventListener("lostpointercapture",e => {
 });
 fields.forEach(f => f.addEventListener("input",draw));
 
+$("zoomIn").addEventListener("click",() => view.zoomBy(1.5));
+$("zoomOut").addEventListener("click",() => view.zoomBy(1/1.5));
+$("zoomFit").addEventListener("click",() => view.fit());
+$("clearBox").addEventListener("click",() => { fields.forEach(f => { f.value = ""; }); draw(); });
+
+for (const b of document.querySelectorAll("[data-method]")) {
+  b.addEventListener("click",() => {
+    const coords = b.dataset.method === "coords";
+    for (const o of document.querySelectorAll("[data-method]")) o.setAttribute("aria-pressed",String(o === b));
+    $("coords").hidden = !coords;
+    $("drawHint").hidden = coords;
+  });
+}
+
 async function loadPreview(data,mode) {
   const img = new Image();
   img.src = mode === "hh" ? (data.preview_hh_url || data.preview_url) : data.preview_url;
   await img.decode();
   return img;
 }
-$("previewMode").addEventListener("change",async () => {
-  if (!state) return;
-  const pair = state, requestedMode = $("previewMode").value;
-  try {
-    const img = await loadPreview(pair,requestedMode);
-    if (state !== pair || $("previewMode").value !== requestedMode) return;
-    photo = img; mode = requestedMode;
-    draw();
-  } catch (err) {
-    if (state === pair) status("Could not switch preview: "+err.message);
+function showMode(m) {
+  for (const b of document.querySelectorAll("[data-mode]")) b.setAttribute("aria-pressed",String(b.dataset.mode === m));
+  $("legendRamp").innerHTML = m === "hh" ? '<span class="sw sw-hh"></span>HH backscatter (dB)'
+                                         : '<span class="sw sw-rg"></span>HH red · HV green';
+}
+let requestedMode = "rg";
+for (const b of document.querySelectorAll("[data-mode]")) {
+  b.addEventListener("click",async () => {
+    if (!state || b.dataset.mode === requestedMode) return;
+    const pair = state, wanted = requestedMode = b.dataset.mode;
+    showMode(wanted);
+    try {
+      const img = await loadPreview(pair,wanted);
+      if (state !== pair || requestedMode !== wanted) return;
+      photo = img; mode = wanted;
+      draw();
+    } catch (err) {
+      if (state === pair) status("Could not switch preview: "+err.message);
+    }
+  });
+}
+
+function when(t) {
+  return typeof t === "string" ? t.slice(0,16).replace("T"," ") + " UTC" : "Time not in metadata";
+}
+function orbitText(m) {
+  const parts = [];
+  if (m.orbitPassDirection) parts.push(m.orbitPassDirection[0].toUpperCase()+m.orbitPassDirection.slice(1));
+  if (m.lookDirection) parts.push(m.lookDirection+"-looking");
+  if (m.trackNumber !== undefined) parts.push("track "+m.trackNumber);
+  if (m.frameNumber !== undefined) parts.push("frame "+m.frameNumber);
+  if (m.absoluteOrbitNumber !== undefined) parts.push("orbit "+m.absoluteOrbitNumber);
+  return parts.join(" · ") || "No orbit metadata";
+}
+function chip(label,value) {
+  const span = document.createElement("span"), b = document.createElement("b");
+  b.textContent = value;
+  span.append(label+" ",b);
+  return span;
+}
+function showPairDetails(p) {
+  const m0 = p.acquisitions?.t0 || {}, m1 = p.acquisitions?.t1 || {};
+  const [ox,oy,OX,OY] = p.overlap;
+  const [dx,dy] = p.native_spacing_m.map(Math.abs);
+  $("crsTag").textContent = "EPSG:"+p.epsg; $("crsTag").hidden = false;
+  $("chips").replaceChildren(
+    chip("T0",when(m0.zeroDopplerStartTime)), chip("T1",when(m1.zeroDopplerStartTime)),
+    chip("Frequency",p.frequency), chip("Grid",`${fmt(p.width)} × ${fmt(p.height)} px`));
+  $("t0Date").textContent = when(m0.zeroDopplerStartTime);
+  $("t0Meta").textContent = orbitText(m0);
+  $("t1Date").textContent = when(m1.zeroDopplerStartTime);
+  $("t1Meta").textContent = orbitText(m1);
+  $("overlapSize").textContent = `${((OX-ox)*(OY-oy)*dx*dy/1e6).toFixed(1)} km²`;
+  $("overlapMeta").textContent = `${fmt(OX-ox)} × ${fmt(OY-oy)} native px · x ${ox}–${OX}, y ${oy}–${OY}`;
+  $("freqPill").textContent = "Frequency "+p.frequency;
+  $("nativeSpacing").textContent = `${dx} × ${dy} m`;
+  $("modelSpacing").textContent = `${p.model_spacing_m} m`;
+  $("gridSize").textContent = `${fmt(p.width)} × ${fmt(p.height)} px`;
+  $("crs").textContent = "EPSG:"+p.epsg;
+  const list = $("warnings");
+  list.replaceChildren();
+  for (const w of p.warnings.length ? p.warnings : ["Acquisition geometry matches; the pair is comparable."]) {
+    const li = document.createElement("li");
+    li.textContent = w;
+    if (!p.warnings.length) li.className = "ok";
+    list.append(li);
   }
-});
+}
+
+function showUpload(open) {
+  $("uploadPanel").hidden = !open;
+  $("cancelUpload").hidden = !state;
+}
+$("newPair").addEventListener("click",() => showUpload(true));
+$("cancelUpload").addEventListener("click",() => showUpload(false));
 
 async function showPair(data) {
-    $("previewMode").value = "rg";
+    requestedMode = "rg"; showMode("rg");
     const img = await loadPreview(data,"rg");
     state = data; photo = img; mode = "rg"; tiles.clear();
     fields.forEach(f => { f.value = ""; });
-    $("pairInfo").textContent = `Native T0: ${state.width} × ${state.height} px | EPSG:${state.epsg}\n`+
-      `Native spacing: ${state.native_spacing_m.join(" × ")} m | Model: ${state.model_spacing_m} m\n`+
-      state.warnings.join("\n");
-    $("select").hidden = false;
+    showPairDetails(state);
+    $("mapUi").hidden = $("pairCard").hidden = $("newPair").hidden = false;
+    showUpload(false);
     view.setRaster(state.width,state.height);
+    setStep(2);
+    updateSelection();
     status("Draw a selection on T0.");
 }
 
+setStep(1);
+updateSelection();
 (async () => {
   setBusy(true);
   try {
@@ -268,7 +655,10 @@ $("upload").addEventListener("submit",async e => {
     status("Choose a non-empty .h5 or .hdf5 file for each date.");
     return;
   }
-  state = null; photo = null; $("select").hidden = $("results").hidden = true;
+  state = null; photo = null; $("results").hidden = $("pairCard").hidden = $("mapUi").hidden = true;
+  $("cancelUpload").hidden = true;
+  view.setRaster(0,0);
+  setStep(1);
   const total = files[0].size + files[1].size;
   $("uploadProgress").hidden = false;
   showProgress(0,total);
@@ -282,7 +672,7 @@ $("upload").addEventListener("submit",async e => {
     status("Both files uploaded. Preparing the T0 preview…");
     await showPair(await post("/prepare"));
   } catch (err) { status(err.message); }
-  finally { setBusy(false); }
+  finally { setBusy(false); $("uploadProgress").hidden = true; }
 });
 
 $("openViewer").addEventListener("click", e => {
@@ -417,8 +807,9 @@ inspector.addEventListener("toggle",async () => {
 
 $("infer").addEventListener("submit",async e => {
   e.preventDefault();
-  if (busy || !state) return;
+  if (busy || !state || !currentBox()) return;
   $("results").hidden = true; setBusy(true);
+  $("runBtn").textContent = "Running model…";
   try {
     status("Reading native pixels and running the model…");
     const r = await post("/infer",JSON.stringify({box:fields.map(f=>f.valueAsNumber),revision:state.revision}),{"Content-Type":"application/json"});
@@ -443,9 +834,11 @@ $("infer").addEventListener("submit",async e => {
     showInterpretation(r.interpretation);
     $("details").textContent = JSON.stringify(r,null,2);
     $("results").hidden = false;
+    setStep(3);
+    $("results").scrollIntoView({behavior:"smooth",block:"start"});
     status(`Finished. Detector flagged ${r.changed_pixels} of ${r.valid_pixels} valid model-grid pixels.`);
   } catch (err) { status(err.message); }
-  finally { setBusy(false); }
+  finally { $("runBtn").textContent = "Run model on selection →"; setBusy(false); }
 });
 </script>
 </html>
