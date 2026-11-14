@@ -16,6 +16,7 @@ from starlette.concurrency import run_in_threadpool
 
 MAX_CHUNK = 8 * 1024 * 1024
 STATIC_FILES = {"index.html": "text/html", "change.html": "text/html",
+STATIC_FILES = {"index.html": "text/html", "change.html": "text/html",
                 "zoom.js": "text/javascript", "pick.js": "text/javascript",
                 "results.js": "text/javascript", "pick.css": "text/css",
                 "results.css": "text/css", "change.css": "text/css",
@@ -92,11 +93,19 @@ def create_app(demo, root: Path, names):
 
     # Popup opened by "Open full viewer" on Results: viewer.html from the project root,
     # read from disk on every request (no cached copy, no inline HTML).
+    @app.get("/change")
+    def change():
+        return FileResponse(root / "change.html", media_type="text/html")
+
+    # Popup opened by "Open full viewer" on Results: viewer.html from the project root,
+    # read from disk on every request (no cached copy, no inline HTML).
     @app.get("/viewer")
     def viewer():
         return FileResponse(root / "viewer.html", media_type="text/html; charset=utf-8")
+        return FileResponse(root / "viewer.html", media_type="text/html; charset=utf-8")
 
     for filename, media_type in STATIC_FILES.items():
+        if filename in {"index.html", "change.html"}:
         if filename in {"index.html", "change.html"}:
             continue
         def static_route(name, content_type):
@@ -112,9 +121,24 @@ def create_app(demo, root: Path, names):
             return error(404, "Icon not found")
         return FileResponse(root / "icons" / (name + ".svg"), media_type="image/svg+xml")
 
+    @app.get("/icons/{name}.svg", include_in_schema=False)
+    def icon(name: str):
+        if name not in ICON_FILES:
+            return error(404, "Icon not found")
+        return FileResponse(root / "icons" / (name + ".svg"), media_type="image/svg+xml")
+
     @app.get("/pair")
     def pair():
         with demo.lock:
+            # result_revision: latest analysis result (None until a model run finishes).
+            return {"pair": demo.info, "result_revision": demo.result_revision}
+
+    @app.get("/result")
+    def result():
+        with demo.lock:
+            revision = demo.result_revision
+            data = getattr(demo, "last_result", None) if revision is not None else None
+        return {"result": data, "result_revision": revision}
             # result_revision: latest analysis result (None until a model run finishes).
             return {"pair": demo.info, "result_revision": demo.result_revision}
 

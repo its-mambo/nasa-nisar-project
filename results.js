@@ -109,6 +109,7 @@ function renderResultsV2(data) {
   }
   setResultText("resultPatternNote", data.interpretation?.source === "visual" ? "AI interpretation is unvalidated. Blue is not a water map." : "Measured SAR values describe change, not its physical cause.");
   resultsEl("resultViewerLink").disabled = resultRevision() === null;
+  resultsEl("resultViewerLink").disabled = resultRevision() === null;
   showResultMode("change");
 }
 
@@ -141,6 +142,7 @@ function showInterpretation(data) {
     p.style.whiteSpace = "pre-wrap";
     p.textContent = data.summary === "" ? "Qwen returned no text." : data.summary;
     root.append(p);
+    resultsEl("interpretationNote").textContent = (data.decoder === "qwen_lora" ? "Qwen + decoder LoRA. " : "Base Qwen. ") + "AI interpretation. The standalone map shows detector flags; the Results map overlays them in blue. " + data.limitation;
     resultsEl("interpretationNote").textContent = (data.decoder === "qwen_lora" ? "Qwen + decoder LoRA. " : "Base Qwen. ") + "AI interpretation. The standalone map shows detector flags; the Results map overlays them in blue. " + data.limitation;
     return;
   }
@@ -277,6 +279,8 @@ function showResultsV2(data) {
   resultsEl("pickPage").hidden = true;
   // "/#results" reopens this tab (used by the Results link on the Change page).
   if (location.hash !== "#results") history.replaceState(null, "", "/#results");
+  // "/#results" reopens this tab (used by the Results link on the Change page).
+  if (location.hash !== "#results") history.replaceState(null, "", "/#results");
   window.scrollTo(0,0);
 }
 function showPickTab() {
@@ -284,6 +288,7 @@ function showPickTab() {
   resultsEl("pickTab").setAttribute("aria-current", "page");
   resultsEl("results").hidden = true;
   resultsEl("pickPage").hidden = false;
+  if (location.hash) history.replaceState(null, "", "/");
   if (location.hash) history.replaceState(null, "", "/");
   window.scrollTo(0,0);
 }
