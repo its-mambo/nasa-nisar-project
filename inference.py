@@ -23,7 +23,7 @@ from dual_model import (QwenModel, SarModel, attach_adapter, convert_weights,
 
 ROOT = Path(__file__).resolve().parent
 NAMES = ("t0.png", "t1.png", "change.png",
-         "t0_hh.png", "t1_hh.png", "change_hh.png")
+         "t0_hh.png", "t1_hh.png", "change_hh.png", "overlay.png")
 PREVIEW_TILE = 512
 
 
@@ -92,6 +92,7 @@ class Demo:
         self.lock = threading.Lock()
         self.counter = 0
         self.result_revision = None
+        self.last_result = None
         self.decoder_trace = None
         self.local_paths = {}
         self.pending_uploads = {}
@@ -171,6 +172,7 @@ class Demo:
                              overlap=common, epsg=a.epsg,
                              native_spacing_m=[a.dx,a.dy],model_spacing_m=self.spacing,frequency=self.frequency,
                              acquisitions={"t0":m0,"t1":m1}, warnings=dates_note(m0,m1),
+                             threshold=self.options.threshold,
                              display_ranges_db=limits.tolist(),
                              full_scene_context=dict(scope="Systematic sample of common footprint; no full-scene inference",
                                   sample_stride=step, sample_pairs=int(valid.sum()),
@@ -196,7 +198,7 @@ class Demo:
             power, valid = grid.power(x, y, min(x + span, width), min(y + span, height), step)
         return tone(db(power), valid, info["display_ranges_db"], grayscale=mode == "hh", soft_color=mode == "rg")
 
-    def infer(self, box, revision):
+    def infer(self, box, revision, threshold=None, progress=None):
         import h5py
         from gcov import Grid, db, factor, match, move, roi_box, to_model
 
@@ -204,6 +206,14 @@ class Demo:
         if self.info is None or revision != self.info["revision"]:
             raise ValueError("Prepare the current pair before selecting an area.")
         opts = self.options
+        threshold = opts.threshold if threshold is None else threshold
+        if (isinstance(threshold, bool) or not isinstance(threshold, (int, float))
+                or not math.isfinite(threshold) or not 0 < threshold < 1):
+            raise ValueError("Change detection threshold must be a number between 0 and 1 (exclusive).")
+        def update(stage, message, completed=None, total=None):
+            if progress is not None:
+                progress(stage, message, completed, total)
+        update("read", "Reading native pixels and aligning the two dates…")
         with h5py.File(self.path("t0"),"r") as h0,h5py.File(self.path("t1"),"r") as h1:
             a,b = (Grid.read(h,self.frequency) for h in (h0,h1))
             shift,common = match(a,b)
@@ -238,8 +248,11 @@ class Demo:
         cached_pair=None
         with ThreadPoolExecutor(max_workers=1) as workers:
             pending=workers.submit(self.qwen.encode,pictures) if parallel else None
+            update("detect", "Starting the change detector…")
             mask,_,valid_count,changed=self.sar.detect((mw,mh),pair,batch_size=opts.batch_size,
-                                                        overlap=opts.overlap,threshold=opts.threshold)
+                overlap=opts.overlap,threshold=threshold,
+                progress=lambda done,total: update("detect", f"Processed {done:,} of {total:,} image tiles", done, total))
+            update("classify", "Measuring SAR patterns and classifying flagged regions…")
             result=self.sar.classify((mw,mh),pair,mask)
             spatial=observe(z0,z1,model_valid,mask)
             paired=paired_sector_deltas(z0,z1,model_valid,mask,spatial["zones"])
@@ -256,7 +269,7 @@ class Demo:
         del p0,p1
         roi_medians = [medians(a0,native_valid),medians(a1,native_valid)]
         full = self.info["full_scene_context"]
-        result.update(threshold=opts.threshold,valid_pixels=valid_count,changed_pixels=changed,
+        result.update(threshold=threshold,valid_pixels=valid_count,changed_pixels=changed,
                       spatial_context=spatial, full_scene_context=full,paired_sector_deltas=paired,
                       roi=dict(t0_pixel_box=box,t1_pixel_box=t1_box,width_px=w,height_px=h,
                                projected_bounds_wsen=bounds,epsg=self.info["epsg"],
@@ -271,6 +284,7 @@ class Demo:
         result["pattern_evidence"] = pattern_evidence
         trace=DecoderTrace(export_tensors=opts.inspect_decoder_tensors)
         report_started=perf_counter()
+        update("report", "Generating the explanation from both dates and the detector map…")
         try:
             raw=self.qwen.report(pictures,result,trace,cached_pair)
             if not raw.strip():
@@ -286,6 +300,7 @@ class Demo:
                             "qwen_report":round(perf_counter()-report_started,3)}
         # Back-project the coarse binary mask by integer pixel replication, then
         # render native HH dB differences only in flagged, jointly valid pixels.
+        update("render", "Rendering the change overlay and preparing your results…")
         selected = np.repeat(np.repeat(mask,fy,axis=0),fx,axis=1)[:h,:w] & native_valid
         blue = np.zeros((h,w,4),np.uint8)
         blue[:,:,:3] = (0,120,255)
@@ -299,6 +314,7 @@ class Demo:
             tmp = self.dir/(name+".tmp")
             img.save(tmp,format="PNG")
             tmp.replace(self.dir/name)
+        save_image("overlay.png",overlay)
         t0 = tone(a0,v0,display)
         save_image("t0.png",t0)
         save_image("change.png",Image.alpha_composite(t0,overlay))
@@ -315,8 +331,10 @@ class Demo:
         if self.decoder_trace is not None:
             result["decoder_inputs_url"] = f"/decoder-inputs?v={self.counter}"
         result["images"] = {n: f"/{n}?v={self.counter}" for n in NAMES}
-        result["viewer_url"] = f"/viewer?v={self.counter}"
+        result["viewer_url"] = f"/change?v={self.counter}"
         result["timing_s"]["total"]=round(perf_counter()-started,3)
+        # Kept so /result can reopen the Results tab (e.g. from the Change page).
+        self.last_result = result
         return result
 
 

@@ -5,30 +5,35 @@
 <title>NISAR SAR Change Explorer</title>
 <link rel="stylesheet" href="/pick.css">
 <link rel="stylesheet" href="/results.css">
+<link rel="stylesheet" href="/navigation.css">
 
-<div id="pickPage">
-<header class="topbar">
-  <div class="brand"><span class="brand-mark" aria-hidden="true"></span>NISAR SAR Change Explorer</div>
-  <ol class="steps" id="steps">
-    <li data-step="1"><span>1</span>Load pair</li>
-    <li data-step="2"><span>2</span>Pick area</li>
-    <li data-step="3"><span>3</span>Results</li>
-  </ol>
-  <div class="spacer"></div>
-  <div class="server-state">Local demo server</div>
+<header class="appbar">
+  <a class="app-brand" href="/"><span class="app-brand-mark" aria-hidden="true"></span>NISAR SAR Change Explorer</a>
+  <nav class="app-tabs" aria-label="Main navigation">
+    <a id="pickTab" href="/" aria-current="page">Pick an area</a>
+    <a href="/change">Change viewer</a>
+    <a id="resultsTab" href="/#results">Results</a>
+  </nav>
 </header>
 
+<div id="pickPage">
 <main>
+  <nav aria-label="Area selection steps">
+    <ol class="steps" id="steps">
+      <li data-step="1"><button id="loadStep" type="button"><span>1</span>Load GCOV files</button></li>
+      <li data-step="2"><button id="areaStep" type="button" disabled><span>2</span>Pick an area</button></li>
+    </ol>
+  </nav>
   <div class="page-head">
     <div>
-      <h1>Pick a change area <span class="tag" id="crsTag" hidden></span></h1>
+      <h1><span id="pickTitle">Load GCOV images</span> <span class="tag" id="crsTag" hidden></span></h1>
       <div class="chips" id="chips"><span>Load a T0 / T1 L-SAR GCOV pair to begin.</span></div>
       <p id="status" role="status" aria-live="polite">Choose two L-SAR GCOV products.</p>
     </div>
     <button class="btn" id="newPair" type="button" hidden>Load new pair</button>
   </div>
 
-  <div class="layout">
+  <div class="layout loading-pair" id="pickLayout">
     <div class="main-col">
       <div class="map">
         <canvas id="preview" aria-label="T0 radar preview"></canvas>
@@ -54,14 +59,14 @@
         </div>
         <div class="map-empty" id="uploadPanel">
           <form id="upload">
-            <h2>Load a NISAR pair</h2>
-            <p>Choose two GCOV files from this device. They are uploaded to the local demo server.</p>
+            <h2>Load your GCOV images</h2>
+            <p>Choose an earlier (T0) and later (T1) NISAR L-SAR GCOV .h5 file. Once both images are ready, pick an area to analyze.</p>
             <label class="file"><span>T0 — earlier image</span>
               <input id="t0" name="t0" type="file" accept=".h5,.hdf5" required></label>
             <label class="file"><span>T1 — later image</span>
               <input id="t1" name="t1" type="file" accept=".h5,.hdf5" required></label>
             <div class="actions">
-              <button class="btn btn-primary" type="submit">Upload and prepare</button>
+              <button class="btn btn-primary" type="submit">Load images →</button>
               <button class="btn" type="button" id="cancelUpload" hidden>Cancel</button>
             </div>
             <div id="uploadProgress" hidden>
@@ -97,7 +102,7 @@
       </section>
     </div>
 
-    <form id="infer">
+    <form id="infer" hidden>
       <section class="card">
         <div class="card-head"><h2>Selection</h2><button type="button" class="link" id="clearBox">Clear</button></div>
         <div class="card-body">
@@ -123,6 +128,23 @@
       </section>
 
       <section class="card">
+        <div class="card-head"><h2><label for="threshold">Change detection threshold</label></h2><output id="thresholdValue" for="threshold" class="pill">0.10</output></div>
+        <div class="card-body">
+          <p class="threshold-intro">Choose how strongly the model must score a change before flagging it.</p>
+          <div class="threshold-control">
+            <input id="threshold" name="threshold" type="range" min="0.01" max="0.99" step="0.01" value="0.10" aria-orientation="vertical" aria-describedby="thresholdHelp thresholdHint">
+            <div class="threshold-labels" aria-hidden="true">
+              <div><b>0.9 · Most selective</b><span>Only the highest-scoring changes</span></div>
+              <div><b>0.5 · Balanced</b><span>A middle ground</span></div>
+              <div><b>0.1 · Most sensitive</b><span>Include more possible changes</span></div>
+            </div>
+          </div>
+          <p id="thresholdHint" class="threshold-hint" role="status">More sensitive · includes lower-scoring changes.</p>
+          <p id="thresholdHelp" class="threshold-help">Applies to the next model run. Scores are experimental; a low threshold can include false detections.</p>
+        </div>
+      </section>
+
+      <section class="card">
         <div class="card-head"><h2>Model</h2><span class="pill">Change detector + Qwen report</span></div>
         <div class="card-body">
           <div class="tiles">
@@ -141,17 +163,27 @@
         <button class="btn btn-primary" id="runBtn">Run model on selection →</button>
         <p id="runNote">Draw a selection to enable the model run.</p>
       </div>
+      <section id="modelProgress" class="card model-progress" hidden aria-labelledby="modelProgressTitle" aria-busy="false">
+        <div class="card-head"><h2 id="modelProgressTitle">Analyzing your area</h2><span id="modelElapsed" class="pill">0s</span></div>
+        <div class="card-body">
+          <ol class="model-stages">
+            <li data-stage="read">Read and align both images</li>
+            <li data-stage="detect">Detect changes</li>
+            <li data-stage="classify">Measure and classify changes</li>
+            <li data-stage="report">Generate the explanation</li>
+            <li data-stage="render">Prepare result images</li>
+          </ol>
+          <p id="modelProgressText" role="status" aria-live="polite">Starting analysis…</p>
+          <progress id="modelStageProgress" aria-label="Current stage progress"></progress>
+          <p class="threshold-help">Each stage takes a different amount of time. Tile progress is shown during detection.</p>
+        </div>
+      </section>
     </form>
   </div>
 
 </main>
 </div>
 <section id="results" class="results-v2" hidden aria-label="Change detection results">
-  <header class="results-appbar">
-    <div class="results-brand"><span class="results-brand-mark" aria-hidden="true"></span>SAR Change Explorer</div>
-    <nav class="results-nav" aria-label="Analysis steps"><button id="resultsBackToPick" type="button">Pick</button><span>Change</span><span class="active" aria-current="page">Results</span></nav>
-    <div class="results-appbar-end"><span>Help</span><span>Account</span></div>
-  </header>
   <div class="results-shell">
     <div class="results-crumb">Projects / Analysis / Results</div>
     <div class="results-hero"><h2>Change detection results</h2><span class="results-badge">✓ Analysis complete</span><span class="results-sample">REAL SAMPLE · MEASURED REPORT</span></div>
@@ -172,7 +204,7 @@
         </div>
         <span class="results-map-label">DETECTOR OVERLAY</span>
         <div class="results-map-legend"><span><i></i>Detector-flagged change</span><span><i class="baseline"></i>Blue intensity = |ΔHH|</span><span><i class="unmarked"></i>Unmarked ≠ confirmed stable</span></div>
-        <div class="results-map-foot"><a id="resultViewerLink" target="_blank" rel="noopener">Open full viewer ↗</a><span id="resultMapScale"></span></div>
+        <div class="results-map-foot"><button id="resultViewerLink" type="button" disabled>Open change viewer ↗</button><span id="resultMapScale"></span></div>
       </div>
       <div class="results-sidebar">
         <section class="results-card" aria-labelledby="resultSummaryTitle">

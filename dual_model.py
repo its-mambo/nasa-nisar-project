@@ -366,10 +366,10 @@ class SarModel:
         # Keep the encoder dtype stable across detection and classification requests.
         self.model.encoder.to(dtype=self.dtype)
 
-    def detect(self,size,pair,*,batch_size,overlap,threshold):
+    def detect(self,size,pair,*,batch_size,overlap,threshold,progress=None):
         from change_model import infer_scene
         return infer_scene(self.model,size,pair,*self.normalization,self.device,self.amp,
-                           batch_size,overlap,threshold)
+                           batch_size,overlap,threshold,progress=progress)
 
     def classify(self,size,pair,mask):
         from change_model import build_scene_prefix, classify

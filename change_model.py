@@ -307,12 +307,14 @@ def score_alpha(scores):
     return alpha
 
 def infer_scene(model, size, read_pair, mean, std, clip, device, amp, batch_size, overlap,
-                threshold, score_opacity=False):
+                threshold, score_opacity=False, progress=None):
     """Predict a stitched mask. read_pair(box) supplies ((dB0, valid0), (dB1, valid1))."""
     width, height = size
     stride = TILE_SIZE - overlap
     rows, cols = offsets(height, stride), offsets(width, stride)
     total = len(rows) * len(cols)
+    if progress is not None:
+        progress(0, total)
     print(f"Detector: {width}×{height} pixels, {total:,} tiles of {TILE_SIZE}×{TILE_SIZE}, "
           f"overlap {overlap}, {device}, AMP {amp}.", flush=True)
     # Rolling strip: float accumulators scale with width × tile size, not scene area.
@@ -359,6 +361,8 @@ def infer_scene(model, size, read_pair, mean, std, clip, device, amp, batch_size
                         sums[win] += np.where(valid, probs, 0.0) * weight
                         weights[win] += weight
                 done += len(cols[start:start + batch_size])
+                if progress is not None:
+                    progress(done, total)
                 if done == total or done % 100 < batch_size:
                     print(f"  {done:,}/{total:,} tiles", flush=True)
             # Only emit rows that future tiles cannot touch.

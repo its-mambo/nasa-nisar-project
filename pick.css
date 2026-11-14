@@ -22,6 +22,11 @@
   .steps li.done { color: var(--muted); }
   .steps li.active { color: var(--teal); font-weight: 600; }
   .steps li.active span { background: var(--teal); border-color: var(--teal); color: #fff; }
+  .steps { margin-bottom: 1.25rem; gap: .75rem; flex-wrap: wrap; }
+  .steps li button { display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; background: transparent; color: inherit; border: 1px solid transparent; border-radius: 8px; cursor: pointer; }
+  .steps li.active button { background: var(--teal-soft); font-weight: 600; }
+  .steps button:disabled { cursor: default; }
+  :is(button, input, a):focus-visible { outline: 3px solid #9cceff; outline-offset: 3px; }
   .topbar .spacer { flex: 1; }
   .server-state { color: var(--muted); font-size: .85rem; display: flex; align-items: center; gap: .4rem; }
   .server-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #2f9e6e; }
@@ -44,6 +49,8 @@
 
   /* Layout */
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1rem; align-items: start; }
+  .layout.loading-pair { grid-template-columns: minmax(0, 1fr); }
+  .loading-pair .map { min-height: 500px; }
   .main-col { display: grid; gap: 1rem; min-width: 0; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
   .card-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .85rem 1rem .6rem; }
@@ -121,6 +128,27 @@
   .run { display: grid; gap: .4rem; }
   .run .btn { padding: .8rem 1rem; font-size: 1rem; font-weight: 600; }
   .run p { margin: 0; text-align: center; font-size: .78rem; color: var(--muted); }
+
+  .threshold-intro { font-size: .82rem; color: var(--muted); margin: 0 0 .8rem; }
+  .threshold-control { display: flex; align-items: stretch; gap: 1rem; padding: .25rem .3rem; }
+  #threshold { writing-mode: vertical-lr; direction: rtl; width: 26px; height: 190px; flex: none; accent-color: var(--teal); cursor: pointer; }
+  .threshold-labels { display: flex; flex-direction: column; justify-content: space-between; padding: 8px 0; font-size: .8rem; }
+  .threshold-labels b, .threshold-labels span { display: block; }
+  .threshold-labels span { color: var(--muted); font-size: .75rem; margin-top: .15rem; }
+  .threshold-hint { font-size: .8rem; color: var(--teal-ink); margin: .75rem 0 .35rem; }
+  .threshold-help { font-size: .75rem; color: var(--muted); margin: .3rem 0 0; }
+  #thresholdValue { font-variant-numeric: tabular-nums; }
+  .model-stages { padding: 0; margin: .25rem 0 1rem; list-style: none; counter-reset: stage; display: grid; gap: .65rem; }
+  .model-stages li { counter-increment: stage; display: flex; align-items: center; gap: .6rem; color: var(--muted); font-size: .8rem; }
+  .model-stages li::before { content: counter(stage); display: grid; place-items: center; flex: none; width: 22px; height: 22px; border: 1px solid var(--line); border-radius: 50%; font-size: .7rem; }
+  .model-stages li.active { color: var(--teal-ink); font-weight: 600; }
+  .model-stages li.active::before { background: var(--teal); color: #fff; border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); }
+  .model-stages li.done::before { content: "✓"; background: var(--teal-soft); color: var(--teal); border-color: transparent; }
+  #modelProgressText { color: var(--ink); font-size: .82rem; }
+  #modelStageProgress { width: 100%; accent-color: var(--teal); height: 8px; }
+  .resuming-run .layout { grid-template-columns: minmax(0, 1fr); }
+  .resuming-run .main-col, .resuming-run #infer > :not(#modelProgress) { display: none; }
+  .resuming-run #infer { width: min(100%, 640px); margin: 0 auto; position: static; }
 
   @media (max-width: 1000px) {
     .layout { grid-template-columns: 1fr; }

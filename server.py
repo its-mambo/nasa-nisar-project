@@ -1,9 +1,13 @@
 """FastAPI routes for the NISAR analysis demo."""
 
 from io import BytesIO
+import asyncio
 import json
 from pathlib import Path
+import threading
+from time import monotonic
 import traceback
+from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -11,10 +15,14 @@ from starlette.concurrency import run_in_threadpool
 
 
 MAX_CHUNK = 8 * 1024 * 1024
-STATIC_FILES = {"index.html": "text/html", "viewer.html": "text/html",
+STATIC_FILES = {"index.html": "text/html", "change.html": "text/html",
                 "zoom.js": "text/javascript", "pick.js": "text/javascript",
                 "results.js": "text/javascript", "pick.css": "text/css",
-                "results.css": "text/css"}
+                "results.css": "text/css", "change.css": "text/css",
+                "change.js": "text/javascript", "navigation.css": "text/css"}
+# Only these icon files may be served from /icons/ (no arbitrary paths).
+ICON_FILES = frozenset({"zoom-in", "zoom-out", "recenter", "fullscreen", "exit-fullscreen",
+                        "split-handle", "swatch", "swatch-selected", "dot-t0", "dot-t1"})
 
 
 def error(code, message):
@@ -37,6 +45,36 @@ def call_locked(demo, func):
 def create_app(demo, root: Path, names):
     app = FastAPI(title="NISAR SAR Change Explorer")
     image_names = set(names)
+    # Progress has its own lock: inference holds demo.lock while using the models.
+    # Status requests must remain responsive throughout that work.
+    jobs, job_lock, tasks = {}, threading.Lock(), set()
+
+    def job_snapshot(job):
+        return {key: value for key, value in job.items() if key not in {"started", "finished"}} | {
+            "elapsed_s": round(job.get("finished", monotonic()) - job["started"], 1)}
+
+    async def run_job(run_id, body):
+        def update(stage, message, completed=None, total=None):
+            with job_lock:
+                jobs[run_id].update(stage=stage, message=message, completed=completed, total=total)
+
+        def work():
+            return call_locked(demo, lambda: demo.infer(body.get("box"), body.get("revision"),
+                                                       body.get("threshold"), progress=update))
+
+        try:
+            result = await run_in_threadpool(work)
+            with job_lock:
+                job = jobs[run_id]
+                if isinstance(result, JSONResponse):
+                    job.update(status="failed", error=json.loads(result.body)["error"])
+                else:
+                    job.update(status="complete", stage="complete", message="Analysis complete", result=result)
+                job["finished"] = monotonic()
+        except Exception as exc:
+            traceback.print_exc()
+            with job_lock:
+                jobs[run_id].update(status="failed", error=str(exc), finished=monotonic())
 
     @app.middleware("http")
     async def no_cache(request, next_call):
@@ -48,12 +86,18 @@ def create_app(demo, root: Path, names):
     def index():
         return FileResponse(root / "index.html", media_type="text/html")
 
+    @app.get("/change")
+    def change():
+        return FileResponse(root / "change.html", media_type="text/html")
+
+    # Popup opened by "Open full viewer" on Results: viewer.html from the project root,
+    # read from disk on every request (no cached copy, no inline HTML).
     @app.get("/viewer")
     def viewer():
-        return FileResponse(root / "viewer.html", media_type="text/html")
+        return FileResponse(root / "viewer.html", media_type="text/html; charset=utf-8")
 
     for filename, media_type in STATIC_FILES.items():
-        if filename in {"index.html", "viewer.html"}:
+        if filename in {"index.html", "change.html"}:
             continue
         def static_route(name, content_type):
             def file_response():
@@ -62,10 +106,24 @@ def create_app(demo, root: Path, names):
         app.add_api_route("/" + filename, static_route(filename, media_type),
                           methods=["GET"], include_in_schema=False)
 
+    @app.get("/icons/{name}.svg", include_in_schema=False)
+    def icon(name: str):
+        if name not in ICON_FILES:
+            return error(404, "Icon not found")
+        return FileResponse(root / "icons" / (name + ".svg"), media_type="image/svg+xml")
+
     @app.get("/pair")
     def pair():
         with demo.lock:
-            return {"pair": demo.info}
+            # result_revision: latest analysis result (None until a model run finishes).
+            return {"pair": demo.info, "result_revision": demo.result_revision}
+
+    @app.get("/result")
+    def result():
+        with demo.lock:
+            revision = demo.result_revision
+            data = getattr(demo, "last_result", None) if revision is not None else None
+        return {"result": data, "result_revision": revision}
 
     @app.get("/decoder-inputs")
     def decoder_inputs(v: str = ""):
@@ -174,7 +232,28 @@ def create_app(demo, root: Path, names):
                 raise ValueError("Expected a selection object.")
         except (ValueError, UnicodeDecodeError) as exc:
             return error(400, str(exc))
-        return await run_in_threadpool(call_locked, demo,
-                                       lambda: demo.infer(body.get("box"), body.get("revision")))
+        with job_lock:
+            if any(job["status"] == "running" for job in jobs.values()):
+                return error(409, "An analysis is already running. Wait for it to finish.")
+            # Keep only recent job statuses; the latest completed report also lives at /result.
+            while len(jobs) >= 8:
+                del jobs[next(iter(jobs))]
+            run_id = uuid4().hex
+            jobs[run_id] = dict(run_id=run_id, status="running", stage="read",
+                                message="Waiting for the model…", completed=None, total=None,
+                                started=monotonic())
+            snapshot = job_snapshot(jobs[run_id])
+        task = asyncio.create_task(run_job(run_id, body))
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+        return JSONResponse(snapshot, status_code=202)
+
+    @app.get("/infer/{run_id}")
+    async def infer_progress(run_id: str):
+        with job_lock:
+            job = jobs.get(run_id)
+            if job is None:
+                return error(404, "This analysis is no longer available. The server may have restarted.")
+            return job_snapshot(job)
 
     return app

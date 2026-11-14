@@ -53,3 +53,30 @@ Open `http://127.0.0.1:8000`, upload an earlier and later NISAR L-SAR GCOV
 weights alone do not contain the GCOV input files. Press Ctrl+C to stop the
 server. To avoid uploading, also pass `--t0 /path/to/earlier.h5` and
 `--t1 /path/to/later.h5` to the same command.
+
+The three tabs are **Pick an area**, **Change viewer**, and **Results**. The
+first tab has two steps: load the GCOV files, then select an area. Its vertical
+threshold slider applies to the next model run, starting at the server's
+`--threshold` value (default 0.1). Lower values include more candidate changes;
+higher values keep only higher-scoring detections. These scores are not
+calibrated probabilities or a direct measure of physical significance.
+
+Runs show the current processing stage, elapsed time, and actual processed-tile
+progress during detection. Other stages use an indeterminate progress bar.
+Reloading the same browser tab reconnects to its running analysis. The Change
+viewer has independent **Show change** and **HH grayscale** switches; the blue
+detector overlay stays blue in grayscale mode and works in T0, T1, and split
+views. Results links open this same viewer.
+
+The UI starts an analysis with `POST /infer` (JSON: `box`, `revision`, optional
+`threshold`). It returns HTTP 202 with a `run_id`. Poll `GET /infer/{run_id}`
+for `status`, `stage`, `message`, `elapsed_s`, and optional `completed`/`total`
+tile counts. A completed job includes `result`; a failed job includes `error`.
+The server accepts one active analysis at a time and retains eight recent job
+statuses in memory. `GET /result` still returns the latest completed report.
+
+Run the regression checks without loading the weight bundle:
+
+```bash
+python -m unittest -v test_analysis
+```

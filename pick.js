@@ -14,11 +14,14 @@ function setStep(n) {
     const s = Number(li.dataset.step);
     li.classList.toggle("active", s === n);
     li.classList.toggle("done", s < n);
+    if (s === n) li.querySelector("button").setAttribute("aria-current", "step");
+    else li.querySelector("button").removeAttribute("aria-current");
   }
 }
 function setBusy(value) {
   busy = value;
-  for (const el of document.querySelectorAll("form input,form button,#newPair")) el.disabled = value;
+  for (const el of document.querySelectorAll("form input,form button,#newPair,#loadStep,#areaStep")) el.disabled = value;
+  $("areaStep").disabled = value || !state;
   if (!value) updateSelection();
 }
 async function post(path,body=null,extra={}) {
@@ -288,9 +291,31 @@ function showPairDetails(p) {
 function showUpload(open) {
   $("uploadPanel").hidden = !open;
   $("cancelUpload").hidden = !state;
+  $("infer").hidden = open;
+  $("mapUi").hidden = $("pairCard").hidden = open || !state;
+  $("newPair").hidden = open || !state;
+  $("crsTag").hidden = open || !state;
+  $("pickLayout").classList.toggle("loading-pair", open);
+  $("pickTitle").textContent = open ? "Load GCOV images" : "Pick a change area";
+  setStep(open ? 1 : 2);
+  if (!busy) status(open ? "Choose two L-SAR GCOV .h5 files." : "Draw a selection on T0.");
 }
 $("newPair").addEventListener("click",() => showUpload(true));
 $("cancelUpload").addEventListener("click",() => showUpload(false));
+$("loadStep").addEventListener("click",() => showUpload(true));
+$("areaStep").addEventListener("click",() => { if (state) showUpload(false); });
+
+function updateThreshold() {
+  const value = $("threshold").valueAsNumber;
+  $("thresholdValue").value = value.toFixed(2);
+  const hint = value < .35 ? "More sensitive · includes lower-scoring changes."
+    : value < .7 ? "Balanced · keeps moderate and higher-scoring changes."
+    : "More selective · keeps only higher-scoring changes.";
+  $("thresholdHint").textContent = hint;
+  $("threshold").setAttribute("aria-valuetext", `${value.toFixed(2)}. ${hint}`);
+}
+$("threshold").addEventListener("input", updateThreshold);
+updateThreshold();
 
 async function showPair(data) {
     requestedMode = "rg"; showMode("rg");
@@ -298,6 +323,8 @@ async function showPair(data) {
     state = data; photo = img; mode = "rg"; tiles.clear();
     fields.forEach(f => { f.value = ""; });
     showPairDetails(state);
+    $("threshold").value = String(data.threshold ?? .1);
+    updateThreshold();
     $("mapUi").hidden = $("pairCard").hidden = $("newPair").hidden = false;
     showUpload(false);
     view.setRaster(state.width,state.height);
@@ -311,10 +338,21 @@ updateSelection();
 (async () => {
   setBusy(true);
   try {
+    const runId = savedRun();
+    if (runId) {
+      showUpload(false);
+      $("pickPage").classList.add("resuming-run");
+      $("pickTitle").textContent = "Analysis in progress";
+      $("chips").textContent = "Your model run is continuing on the server.";
+      try { await followRun(runId); }
+      catch (err) { status(err.message); }
+      finally { $("pickPage").classList.remove("resuming-run"); }
+    }
     const r = await fetch("/pair");
     if (r.ok) {
       const {pair} = await r.json();
       if (pair) await showPair(pair);
+      else showUpload(true);
     }
   } catch (err) { status("Could not load the current pair: "+err.message); }
   finally { setBusy(false); }
@@ -329,6 +367,7 @@ $("upload").addEventListener("submit",async e => {
     return;
   }
   state = null; photo = null; $("results").hidden = $("pairCard").hidden = $("mapUi").hidden = true;
+  $("modelProgress").hidden = true;
   $("cancelUpload").hidden = true;
   view.setRaster(0,0);
   setStep(1);
@@ -348,17 +387,107 @@ $("upload").addEventListener("submit",async e => {
   finally { setBusy(false); $("uploadProgress").hidden = true; }
 });
 
+function savedRun(value) {
+  try {
+    if (value === null) sessionStorage.removeItem("nisar-active-run");
+    else if (value !== undefined) sessionStorage.setItem("nisar-active-run", value);
+    return sessionStorage.getItem("nisar-active-run");
+  } catch { return null; }
+}
+
+function updateModelProgress(job) {
+  const stages = ["read", "detect", "classify", "report", "render"];
+  const index = job.status === "complete" ? stages.length : stages.indexOf(job.stage);
+  for (const li of document.querySelectorAll("[data-stage]")) {
+    const i = stages.indexOf(li.dataset.stage);
+    li.classList.toggle("done", i < index);
+    li.classList.toggle("active", i === index);
+    if (i === index) li.setAttribute("aria-current", "step");
+    else li.removeAttribute("aria-current");
+  }
+  const progress = $("modelStageProgress");
+  let message = job.message;
+  if (job.total > 0 && Number.isFinite(job.completed)) {
+    progress.max = job.total;
+    progress.value = job.completed;
+    message += ` · ${Math.floor(100 * job.completed / job.total)}%`;
+  } else {
+    progress.removeAttribute("value");
+  }
+  if (job.status === "complete") { progress.max = progress.value = 1; }
+  if (job.status === "complete") $("modelProgressTitle").textContent = "Analysis complete";
+  $("modelProgressText").textContent = message;
+  $("runBtn").textContent = ({read:"Reading images…", detect:"Detecting changes…", classify:"Measuring changes…", report:"Generating explanation…", render:"Preparing results…"})[job.stage] || "Analyzing…";
+  status(message);
+}
+
+async function followRun(runId) {
+  savedRun(runId);
+  $("modelProgress").hidden = false;
+  $("modelProgress").setAttribute("aria-busy", "true");
+  $("modelProgress").scrollIntoView({block:"nearest", behavior:"smooth"});
+  let started = Date.now();
+  const tick = () => {
+    const seconds = Math.floor((Date.now() - started) / 1000);
+    $("modelElapsed").textContent = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  };
+  tick();
+  const timer = setInterval(tick, 1000);
+  let finished = false;
+  try {
+    while (true) {
+      let response;
+      try { response = await fetch(`/infer/${encodeURIComponent(runId)}`, {cache:"no-store"}); }
+      catch {
+        $("modelProgressText").textContent = "Connection interrupted. Reconnecting to the running analysis…";
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        continue;
+      }
+      const job = await response.json();
+      if (!response.ok || job.status === "failed") {
+        finished = true;
+        throw new Error(job.error || "Could not read analysis progress.");
+      }
+      started = Date.now() - job.elapsed_s * 1000;
+      tick();
+      updateModelProgress(job);
+      if (job.status === "complete") {
+        finished = true;
+        showResultsV2(job.result);
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 750));
+    }
+  } catch (err) {
+    $("modelProgressTitle").textContent = "Analysis interrupted";
+    $("modelProgressText").textContent = err.message;
+    $("modelStageProgress").hidden = true;
+    throw err;
+  } finally {
+    clearInterval(timer);
+    if (finished) savedRun(null);
+    $("modelProgress").setAttribute("aria-busy", "false");
+    $("runBtn").textContent = "Run model on selection →";
+  }
+}
+
 $("infer").addEventListener("submit",async e => {
   e.preventDefault();
   if (busy || !state || !currentBox()) return;
   setBusy(true);
-  $("runBtn").textContent = "Running model…";
+  $("modelProgressTitle").textContent = "Analyzing your area";
+  $("modelStageProgress").hidden = false;
+  $("modelProgress").hidden = false;
+  updateModelProgress({stage:"read", message:"Starting analysis…"});
   try {
-    status("Reading native pixels and running the model…");
-    const result = await post("/infer",JSON.stringify({box:fields.map(f=>f.valueAsNumber),revision:state.revision}),{"Content-Type":"application/json"});
-    showResultsV2(result);
-    setStep(3);
-    status(`Finished. Detector flagged ${result.changed_pixels} of ${result.valid_pixels} valid model-grid pixels.`);
-  } catch (err) { status(err.message); }
+    const job = await post("/infer",JSON.stringify({box:fields.map(f=>f.valueAsNumber),revision:state.revision,
+      threshold:$("threshold").valueAsNumber}),{"Content-Type":"application/json"});
+    await followRun(job.run_id);
+  } catch (err) {
+    status(err.message);
+    $("modelProgressTitle").textContent = "Analysis interrupted";
+    $("modelProgressText").textContent = err.message;
+    $("modelStageProgress").hidden = true;
+  }
   finally { $("runBtn").textContent = "Run model on selection →"; setBusy(false); }
 });
