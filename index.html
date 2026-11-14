@@ -4,6 +4,117 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NISAR SAR Change Explorer</title>
 <style>
+.results-v2 {
+  --ink: #17223b;
+  --muted: #68758a;
+  --line: #dce5e9;
+  --teal: #075b63;
+  --pale: #e5f4f5;
+  --blue: #295df0;
+  color: var(--ink);
+  background: #f7f9fa;
+  font: 14px/1.45 Inter, ui-sans-serif, system-ui, sans-serif;
+  min-height: 100dvh;
+  margin: -8px;
+}
+.results-v2 *, .results-v2 *::before, .results-v2 *::after { box-sizing: border-box; }
+.results-v2 button, .results-v2 a { font: inherit; }
+.results-v2 button { cursor: pointer; }
+.results-v2 button:focus-visible, .results-v2 a:focus-visible { outline: 3px solid #3689c9; outline-offset: 3px; }
+.results-v2 [hidden] { display: none !important; }
+.results-appbar { height: 66px; padding: 0 max(24px, calc((100vw - 1480px)/2)); background: white; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 36px; }
+.results-brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; font-weight: 750; font-size: 17px; letter-spacing: -.035em; }
+.results-brand-mark { width: 18px; height: 18px; border: 3px solid #187d8b; transform: rotate(45deg); display: inline-block; position: relative; }
+.results-brand-mark::after { content: ""; position: absolute; inset: 3px; border: 2px solid #187d8b; }
+.results-nav { align-self: stretch; display: flex; align-items: stretch; gap: 8px; }
+.results-nav span { min-width: 85px; display: grid; place-items: center; color: #526176; border-bottom: 3px solid transparent; }
+.results-nav .active { color: var(--teal); border-color: var(--teal); font-weight: 700; }
+.results-appbar-end { margin-left: auto; display: flex; gap: 24px; color: #778397; font-size: 12px; }
+.results-shell { max-width: 1480px; margin: auto; padding: 22px 28px 42px; }
+.results-crumb { color: #8994a3; font-size: 12px; margin-bottom: 10px; }
+.results-hero { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.results-hero h2 { font-size: clamp(22px, 2vw, 31px); line-height: 1.2; letter-spacing: -.035em; margin: 0; }
+.results-badge { background: #d9f5ed; color: #087063; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 4px; }
+.results-sample { margin-left: auto; background: #f0f3f7; color: #59687b; font-size: 10px; letter-spacing: .05em; font-weight: 700; padding: 6px 11px; border-radius: 3px; }
+.results-meta { color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 18px; font-size: 12px; }
+.results-meta span + span::before { content: "·"; margin-right: 8px; }
+.results-grid { display: grid; grid-template-columns: minmax(0, 1.95fr) minmax(290px, 1fr); gap: 18px; }
+.results-map-card { height: 570px; min-height: 400px; border-radius: 10px; background: #364b51; position: relative; overflow: hidden; box-shadow: 0 1px 3px #17223b25; }
+.results-map-card canvas { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+.results-map-card canvas.panning { cursor: grabbing; }
+.results-map-toolbar { position: absolute; top: 14px; left: 14px; z-index: 2; display: flex; background: white; padding: 3px; border-radius: 5px; box-shadow: 0 1px 5px #10262c50; }
+.results-map-toolbar button { border: 0; color: #35465a; background: transparent; padding: 8px 13px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
+.results-map-toolbar button[aria-pressed="true"] { background: var(--teal); color: white; font-weight: 700; }
+.results-zoom { position: absolute; top: 70px; left: 14px; z-index: 2; display: grid; background: white; border-radius: 5px; box-shadow: 0 1px 5px #10262c50; overflow: hidden; }
+.results-zoom button { width: 36px; height: 36px; border: 0; border-bottom: 1px solid var(--line); background: white; color: #32465c; font-size: 20px; line-height: 1; }
+.results-zoom button:last-child { border-bottom: 0; font-size: 17px; }
+.results-map-status { position: absolute; inset: 0; display: grid; place-items: center; color: #f6fbfd; text-align: center; pointer-events: none; padding: 80px; }
+.results-map-label { position: absolute; top: 18px; right: 15px; color: #e4eef0; background: #243c43ba; border-radius: 3px; font-size: 10px; letter-spacing: .04em; padding: 6px 8px; }
+.results-map-legend { position: absolute; bottom: 17px; left: 15px; background: white; padding: 11px 13px; border-radius: 5px; box-shadow: 0 1px 5px #10262c50; display: grid; gap: 5px; font-size: 11px; color: #34425a; }
+.results-map-legend span { display: flex; align-items: center; gap: 8px; }
+.results-map-legend i { width: 13px; height: 13px; border-radius: 2px; display: inline-block; background: var(--blue); }
+.results-map-legend i.baseline { background: #83a9df; }
+.results-map-legend i.unmarked { background: #43565d; }
+.results-map-foot { position: absolute; bottom: 17px; right: 15px; display: flex; align-items: center; gap: 8px; }
+.results-map-foot span, .results-map-foot a { background: #f8fcfded; color: #586779; padding: 5px 8px; border-radius: 3px; font-size: 10px; text-decoration: none; }
+.results-sidebar { display: grid; grid-template-rows: auto 1fr; gap: 18px; min-width: 0; }
+.results-card { background: white; border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.results-card h3 { font-size: 17px; letter-spacing: -.015em; margin: 0 0 14px; }
+.results-kpi { background: var(--pale); border-radius: 6px; padding: 12px 15px; }
+.results-kpi strong { display: block; font-size: clamp(30px, 3vw, 43px); letter-spacing: -.045em; line-height: 1.12; }
+.results-kpi span { font-size: 12px; color: #354f5c; font-weight: 600; }
+.results-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.results-metric { min-width: 0; }
+.results-metric strong { display: flex; align-items: center; gap: 7px; font-size: 20px; line-height: 1.2; }
+.results-metric strong::before { content: ""; width: 13px; height: 13px; flex: none; background: var(--blue); border-radius: 2px; }
+.results-metric.score strong::before { background: var(--teal); }
+.results-metric span { color: var(--muted); font-size: 11px; }
+.results-split-labels { display: flex; justify-content: space-between; color: #4f5e70; font-size: 10px; margin: 14px 0 4px; }
+.results-split { height: 11px; border-radius: 10px; background: #e9edf4; overflow: hidden; }
+.results-split span { display: block; height: 100%; min-width: 2px; background: var(--blue); border-radius: inherit; }
+.results-caveat { font-size: 11px; color: #8792a1; margin: 7px 0 0; }
+.results-pattern-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.results-pattern-head b { background: #e9f5f7; color: var(--teal); font-size: 10px; padding: 4px 7px; border-radius: 3px; }
+.results-pattern { background: #f3f7f9; padding: 12px 13px; border-radius: 5px; color: #34455b; font-size: 12px; white-space: pre-wrap; margin: 2px 0 12px; }
+.results-pattern-note { color: #8792a1; font-size: 11px; margin: 0; }
+.results-science { margin-top: 18px; background: white; border: 1px solid var(--line); border-radius: 10px; padding: 17px 18px 20px; }
+.results-science-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 15px; }
+.results-science h3 { font-size: 19px; margin: 0 auto 0 0; }
+.results-outline, .results-primary { border: 1px solid #7ab7b9; background: white; color: var(--teal); padding: 8px 12px; border-radius: 5px; font-size: 12px !important; font-weight: 700 !important; text-decoration: none; }
+.results-primary { background: var(--teal); color: white; border-color: var(--teal); }
+.results-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 17px; }
+.results-detail { display: flex; align-items: center; gap: 13px; min-width: 0; background: #f6f8fb; border: 1px solid #e3e8ee; border-radius: 5px; padding: 11px 13px; }
+.results-detail-icon { flex: none; color: var(--teal); font-size: 20px; }
+.results-detail span:not(.results-detail-icon) { display: block; color: #8390a1; font-size: 11px; }
+.results-detail strong { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.results-report-dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; color: var(--ink); width: min(850px, calc(100vw - 30px)); max-height: 85dvh; box-shadow: 0 20px 80px #091d3055; }
+.results-report-dialog::backdrop { background: #12272db0; }
+.results-report-head { position: sticky; top: 0; background: white; padding: 18px 22px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); }
+.results-report-head h3 { margin: 0; }
+.results-report-head button { border: 0; background: transparent; font-size: 25px; }
+.results-report-body { padding: 20px 24px 28px; max-height: calc(85dvh - 70px); overflow: auto; line-height: 1.55; }
+.results-report-body h4 { margin: 20px 0 5px; }
+.results-report-body pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .results-grid { grid-template-columns: 1fr; }
+  .results-map-card { height: min(65vw, 550px); }
+  .results-sidebar { grid-template-columns: 1fr 1fr; grid-template-rows: auto; }
+  .results-appbar-end { display: none; }
+}
+@media (max-width: 650px) {
+  .results-appbar { height: 58px; gap: 12px; padding: 0 15px; }
+  .results-brand { font-size: 13px; }
+  .results-nav { gap: 0; margin-left: auto; }
+  .results-nav span { min-width: 53px; font-size: 12px; }
+  .results-shell { padding: 18px 14px 30px; }
+  .results-sample { margin-left: 0; }
+  .results-map-card { height: 430px; }
+  .results-map-toolbar button { padding: 7px 9px; }
+  .results-sidebar, .results-detail-grid { grid-template-columns: 1fr; }
+  .results-map-foot a { display: none; }
+}
+</style>
+<style>
   :root {
     --bg: #f4f6f7; --card: #fff; --line: #e1e6e8; --soft: #eef3f3;
     --ink: #14212b; --muted: #5d6b74; --faint: #8b979e;
@@ -182,6 +293,81 @@
       <div class="chips" id="chips"><span>Load a T0 / T1 L-SAR GCOV pair to begin.</span></div>
       <p id="status" role="status" aria-live="polite">Choose two L-SAR GCOV products.</p>
     </div>
+  </fieldset>
+</form>
+<p id="status" role="status" aria-live="polite">Choose two L-SAR GCOV products.</p>
+<section id="select" hidden>
+  <p>Drag a box inside the white common footprint. For exact selection, edit the native T0 pixel coordinates below.</p>
+  <p><strong>Ctrl + mouse wheel</strong> to zoom. Drag with the middle mouse button to pan.</p>
+  <p><label for="previewMode">Preview:</label>
+    <select id="previewMode">
+      <option value="rg">HH red / HV green</option>
+      <option value="hh">HH grayscale</option>
+    </select></p>
+  <canvas id="preview" aria-label="T0 radar preview"></canvas>
+  <form id="infer">
+    <p><label>Left <input id="left" type="number" step="1" required></label>
+       <label>Top <input id="top" type="number" step="1" required></label>
+       <label>Right <input id="right" type="number" step="1" required></label>
+       <label>Bottom <input id="bottom" type="number" step="1" required></label></p>
+    <button>Run model on selection</button>
+  </form>
+  <pre id="pairInfo"></pre>
+</section>
+<section id="results" class="results-v2" hidden aria-label="Change detection results">
+  <header class="results-appbar">
+    <div class="results-brand"><span class="results-brand-mark" aria-hidden="true"></span>SAR Change Explorer</div>
+    <nav class="results-nav" aria-label="Analysis steps"><span>Pick</span><span>Change</span><span class="active" aria-current="page">Results</span></nav>
+    <div class="results-appbar-end"><span>Help</span><span>Account</span></div>
+  </header>
+  <div class="results-shell">
+    <div class="results-crumb">Projects / Analysis / Results</div>
+    <div class="results-hero"><h2>Change detection results</h2><span class="results-badge">✓ Analysis complete</span><span class="results-sample">REAL SAMPLE · MEASURED REPORT</span></div>
+    <div class="results-meta"><span>NISAR L2 GCOV</span><span id="resultDates"></span><span id="resultDays"></span><span id="resultEpsg"></span></div>
+    <div class="results-grid">
+      <div class="results-map-card">
+        <canvas id="resultMap" role="img" aria-label="Detector change overlay"></canvas>
+        <div id="resultMapStatus" class="results-map-status" role="status">Loading result image…</div>
+        <div class="results-map-toolbar" role="group" aria-label="Result image">
+          <button type="button" data-result-mode="change" aria-pressed="true">Change overlay</button>
+          <button type="button" data-result-mode="t0" aria-pressed="false">T0</button>
+          <button type="button" data-result-mode="t1" aria-pressed="false">T1</button>
+        </div>
+        <div class="results-zoom" role="group" aria-label="Map zoom">
+          <button id="resultZoomIn" type="button" aria-label="Zoom in">+</button>
+          <button id="resultZoomOut" type="button" aria-label="Zoom out">−</button>
+          <button id="resultZoomReset" type="button" aria-label="Fit image">⊙</button>
+        </div>
+        <span class="results-map-label">DETECTOR OVERLAY</span>
+        <div class="results-map-legend"><span><i></i>Detector-flagged change</span><span><i class="baseline"></i>Blue intensity = |ΔHH|</span><span><i class="unmarked"></i>Unmarked ≠ confirmed stable</span></div>
+        <div class="results-map-foot"><a id="resultViewerLink" target="_blank" rel="noopener">Open full viewer ↗</a><span id="resultMapScale"></span></div>
+      </div>
+      <div class="results-sidebar">
+        <section class="results-card" aria-labelledby="resultSummaryTitle">
+          <h3 id="resultSummaryTitle">Detected change summary</h3>
+          <div class="results-kpi"><strong id="resultFlaggedArea">—</strong><span id="resultFlaggedPct"></span></div>
+          <div class="results-metrics"><div class="results-metric"><strong id="resultFlaggedCount">—</strong><span>Flagged model cells</span></div><div class="results-metric score"><strong id="resultModelScore">—</strong><span id="resultModelLabel">Model score</span></div></div>
+          <div class="results-split-labels"><span id="resultModelPct"></span><span id="resultUnflaggedPct"></span></div><div class="results-split"><span id="resultSplitFill"></span></div>
+          <p class="results-caveat">Model score is experimental, not a calibrated probability.</p>
+        </section>
+        <section class="results-card" aria-labelledby="resultPatternTitle"><div class="results-pattern-head"><h3 id="resultPatternTitle">Observed SAR patterns</h3><b>MEASURED</b></div><p id="resultPattern" class="results-pattern"></p><p id="resultPatternNote" class="results-pattern-note"></p></section>
+      </div>
+    </div>
+    <section class="results-science" aria-labelledby="resultScienceTitle">
+      <div class="results-science-head"><h3 id="resultScienceTitle">Scientific details</h3><a id="resultDownload" class="results-outline" download="change.png">↓ Download PNG</a><button id="resultOpenReport" class="results-primary" type="button">▣ View measured report</button></div>
+      <div class="results-detail-grid"><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">◇</span><div><span>Selection coverage</span><strong id="resultCoverage"></strong></div></div><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">▥</span><div><span>Top flagged sectors</span><strong id="resultSectors"></strong></div></div><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">◇</span><div><span>Acquisition geometry</span><strong id="resultGeometry"></strong></div></div></div>
+    </section>
+  </div>
+  <dialog id="resultReportDialog" class="results-report-dialog" aria-labelledby="resultReportTitle">
+    <div class="results-report-head"><h3 id="resultReportTitle">Measured report</h3><button id="resultCloseReport" type="button" aria-label="Close report">×</button></div>
+    <div class="results-report-body">
+      <section><h4>What might explain the change?</h4><div id="hypotheses"></div><p id="interpretationNote"></p></section>
+      <div id="reportSections"></div>
+      <details id="decoderInputs" hidden><summary>Inspect decoder inputs</summary><div id="decoderBody"></div></details>
+      <details><summary>Metadata and measurements</summary><pre id="details"></pre></details>
+    </div>
+  </dialog>
+</section>
     <button class="btn" id="newPair" type="button" hidden>Load new pair</button>
   </div>
 
@@ -324,6 +510,129 @@
 </main>
 
 <script src="/zoom.js"></script>
+<script>
+"use strict";
+
+const resultsEl = id => document.getElementById(id);
+const resultCanvas = resultsEl("resultMap");
+let resultImage = null;
+let resultMode = "change";
+let resultLoadId = 0;
+let resultData = null;
+const resultViewport = new RasterViewport(resultCanvas, ctx => {
+  if (!resultImage) return;
+  const [x, y, right, bottom] = resultViewport.visible();
+  if (right > x && bottom > y) {
+    ctx.drawImage(resultImage, x, y, right - x, bottom - y, x, y, right - x, bottom - y);
+  }
+});
+resultViewport.enableDrag(0);
+
+const resultNumber = value => Number(value || 0).toLocaleString("en-US");
+const resultArea = value => Number(value || 0).toLocaleString("en-US", {maximumFractionDigits: 2, minimumFractionDigits: 2});
+function acquisitionDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+function setResultText(id, value) { resultsEl(id).textContent = value; }
+
+async function showResultMode(mode) {
+  if (!resultData) return;
+  resultMode = mode;
+  document.querySelectorAll("[data-result-mode]").forEach(button =>
+    button.setAttribute("aria-pressed", String(button.dataset.resultMode === mode)));
+  const file = {change:"change.png",t0:"t0.png",t1:"t1.png"}[mode];
+  const url = resultData.images?.[file];
+  const label = {change:"Detector change overlay",t0:"T0 · earlier image",t1:"T1 · later image"}[mode];
+  setResultText("resultMapStatus", "Loading " + label + "…");
+  resultsEl("resultMapStatus").hidden = false;
+  if (!url) {
+    setResultText("resultMapStatus", "Image unavailable for this result.");
+    return;
+  }
+  const id = ++resultLoadId;
+  const img = new Image();
+  img.src = url;
+  try {
+    await img.decode();
+    if (id !== resultLoadId) return;
+    resultImage = img;
+    resultCanvas.setAttribute("aria-label", label);
+    resultViewport.setRaster(img.naturalWidth, img.naturalHeight);
+    resultsEl("resultMapStatus").hidden = true;
+    resultsEl("resultDownload").href = url;
+    resultsEl("resultDownload").download = file;
+  } catch {
+    if (id === resultLoadId) setResultText("resultMapStatus", "Could not load this result image.");
+  }
+}
+
+function resultZoom(factor) {
+  if (!resultViewport.width) return;
+  if (factor === 0) {
+    resultViewport.scale = resultViewport.fitScale;
+  } else {
+    resultViewport.scale = Math.max(resultViewport.fitScale, Math.min(8, resultViewport.scale * factor));
+  }
+  resultViewport.x = (resultViewport.w - resultViewport.width * resultViewport.scale) / 2;
+  resultViewport.y = (resultViewport.h - resultViewport.height * resultViewport.scale) / 2;
+  resultViewport.clamp();
+  resultViewport.invalidate();
+}
+
+function renderResultsV2(data) {
+  resultData = data;
+  const roi = data.roi || {};
+  const acq = data.acquisitions || {};
+  const start = acquisitionDate(acq.t0?.zeroDopplerStartTime);
+  const end = acquisitionDate(acq.t1?.zeroDopplerStartTime);
+  const dateFormat = new Intl.DateTimeFormat("en-GB", {day:"2-digit",month:"short",year:"numeric",timeZone:"UTC"});
+  setResultText("resultDates", start && end ? `${dateFormat.format(start)} → ${dateFormat.format(end)}` : "Acquisition dates unavailable");
+  const days = start && end ? Math.round((Date.UTC(end.getUTCFullYear(),end.getUTCMonth(),end.getUTCDate()) - Date.UTC(start.getUTCFullYear(),start.getUTCMonth(),start.getUTCDate())) / 86400000) : null;
+  setResultText("resultDays", days === null ? "Date interval unavailable" : `${days} days`);
+  setResultText("resultEpsg", roi.epsg ? `EPSG:${roi.epsg}` : "Projection unavailable");
+  setResultText("resultMapScale", `${roi.model_spacing_m ?? "—"} m grid · EPSG:${roi.epsg ?? "—"}`);
+  setResultText("resultFlaggedArea", `${resultArea(data.changed_pixels * (roi.model_spacing_m || 0) ** 2 / 1e6)} km²`);
+  const pct = data.valid_pixels ? 100 * data.changed_pixels / data.valid_pixels : 0;
+  setResultText("resultFlaggedPct", `${pct.toFixed(1)}% of valid model pixels · threshold ${data.threshold ?? "—"}`);
+  setResultText("resultFlaggedCount", resultNumber(data.changed_pixels));
+  setResultText("resultModelPct", `${pct.toFixed(1)}% flagged`);
+  setResultText("resultUnflaggedPct", `${(100-pct).toFixed(1)}% not flagged`);
+  resultsEl("resultSplitFill").style.width = `${Math.max(0,Math.min(100,pct))}%`;
+  const prediction = data.predictions?.linear;
+  const score = prediction?.scores?.[prediction.label];
+  setResultText("resultModelScore", Number.isFinite(score) ? `${(score*100).toFixed(1)}%` : "—");
+  setResultText("resultModelLabel", prediction ? `${({water_related:"Water-related change",other_change:"Other change"}[prediction.label] || prediction.label)} score` : "No classifier label");
+  setResultText("resultCoverage", `${resultArea(roi.projected_rectangle_km2)} km² · EPSG:${roi.epsg ?? "—"}`);
+  const sectors = [...(data.spatial_context?.zones || [])].filter(z => z.flagged).sort((a,b) => b.flagged-a.flagged).slice(0,3);
+  setResultText("resultSectors", sectors.length ? sectors.map(z => z.zone.replace(/\b\w/g, c => c.toUpperCase())).join(" · ") : "No flagged sectors");
+  const geo = acq.t0 || {};
+  setResultText("resultGeometry", [geo.orbitPassDirection, geo.lookDirection, geo.trackNumber == null ? null : `Track ${geo.trackNumber}`, geo.frameNumber == null ? null : `Frame ${geo.frameNumber}`].filter(Boolean).join(" · ") || "Acquisition geometry unavailable");
+  const pairs = (data.paired_sector_deltas || []).filter(row => row.flagged?.median_delta_hh_hv_db && row.unflagged?.median_delta_hh_hv_db);
+  if (pairs.length) {
+    const text = pairs.map(row => {
+      const flagged = row.flagged.median_delta_hh_hv_db;
+      const background = row.unflagged.median_delta_hh_hv_db;
+      return `${row.zone}: median HH ${flagged[0] >= 0 ? "+" : ""}${flagged[0].toFixed(2)} dB, HV ${flagged[1] >= 0 ? "+" : ""}${flagged[1].toFixed(2)} dB in flagged cells; HH ${background[0] >= 0 ? "+" : ""}${background[0].toFixed(2)} dB, HV ${background[1] >= 0 ? "+" : ""}${background[1].toFixed(2)} dB in unflagged cells.`;
+    }).join("\n");
+    setResultText("resultPattern", text);
+  } else {
+    setResultText("resultPattern", data.spatial_context?.change_map_description || "No paired sector comparison is available for this selection.");
+  }
+  setResultText("resultPatternNote", data.interpretation?.source === "visual" ? "AI interpretation is unvalidated. Blue is not a water map." : "Measured SAR values describe change, not its physical cause.");
+  resultsEl("resultViewerLink").href = data.viewer_url || "#";
+  showResultMode("change");
+}
+
+document.querySelectorAll("[data-result-mode]").forEach(button => button.addEventListener("click", () => showResultMode(button.dataset.resultMode)));
+resultsEl("resultZoomIn").addEventListener("click", () => resultZoom(1.5));
+resultsEl("resultZoomOut").addEventListener("click", () => resultZoom(1/1.5));
+resultsEl("resultZoomReset").addEventListener("click", () => resultZoom(0));
+resultsEl("resultOpenReport").addEventListener("click", () => resultsEl("resultReportDialog").showModal());
+resultsEl("resultCloseReport").addEventListener("click", () => resultsEl("resultReportDialog").close());
+resultsEl("resultReportDialog").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+</script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -675,16 +984,6 @@ $("upload").addEventListener("submit",async e => {
   finally { setBusy(false); $("uploadProgress").hidden = true; }
 });
 
-$("openViewer").addEventListener("click", e => {
-  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-  const popup = window.open(e.currentTarget.href,"nisar-image-viewer","popup,width=1220,height=900");
-  if (popup) {
-    popup.opener = null;
-    popup.focus();
-    e.preventDefault();
-  }
-});
-
 function showInterpretation(data) {
   const root = $("hypotheses");
   root.replaceChildren();
@@ -813,12 +1112,8 @@ $("infer").addEventListener("submit",async e => {
   try {
     status("Reading native pixels and running the model…");
     const r = await post("/infer",JSON.stringify({box:fields.map(f=>f.valueAsNumber),revision:state.revision}),{"Content-Type":"application/json"});
-    const a = r.roi;
-    $("area").textContent = `${a.width_px} × ${a.height_px} native px | ${a.projected_rectangle_km2} km² projected rectangle | EPSG:${a.epsg} | Bounds W, S, E, N: ${a.projected_bounds_wsen.join(", ")}`;
-    const prediction = r.predictions?.linear;
-    const names = {water_related:"Water-related change", other_change:"Other change"};
-    $("label").textContent = prediction ? "Model label: "+(names[prediction.label] || prediction.label) : "No label: "+r.status;
-    $("openViewer").href = r.viewer_url;
+    $("results").hidden = false;
+    renderResultsV2(r);
     inspector.open = false;
     inspector.dataset.url = r.decoder_inputs_url || "";
     inspector.hidden = !r.decoder_inputs_url;
@@ -833,6 +1128,9 @@ $("infer").addEventListener("submit",async e => {
     }
     showInterpretation(r.interpretation);
     $("details").textContent = JSON.stringify(r,null,2);
+    $("upload").hidden = $("select").hidden = true;
+    document.querySelector("body > h1").hidden = true;
+    $("status").hidden = true;
     $("results").hidden = false;
     setStep(3);
     $("results").scrollIntoView({behavior:"smooth",block:"start"});
