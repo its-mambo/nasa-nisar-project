@@ -128,9 +128,33 @@ Download the full report and measurements as JSON or the leading three sector
 comparisons as CSV. The CSV includes both channels, sample counts, signed dB
 statistics, acquisition times, threshold, spacing, and EPSG code.
 
+**Evidence & interpretation** presents a short main finding, sourced numeric
+evidence, unverified AI observations, one optional hypothesis with its open
+assumptions, and independent next checks. Coverage/flag composition and signed
+HH/HV comparison charts use application-calculated values. The sector chart
+can focus that sector in the Results map. Reference chips reveal the source
+measurements without repeating the full scientific-details narrative.
+
+The report can be downloaded as **Markdown (.md)** or **plain text (.txt)**.
+`GET /report.md?v=REV` and `/report.txt?v=REV` check that the requested result
+is still current. Exports preserve claim labels, evidence IDs, exact numbers,
+dates, method scope, and provenance. Charts are represented by their values
+in the portable text export.
+
+Qwen is prompted for bounded JSON claims with evidence references; numeric
+measurements remain application-generated. Invalid or legacy prose output
+keeps the measured report available while marking structured AI interpretation
+unavailable. Raw model output remains in the technical inspector. This checks
+format and references, not scientific correctness. The adapted Qwen model
+still needs a real-pair evaluation of the new output contract.
+
+[REPORT_CONTRACT.md](REPORT_CONTRACT.md) describes the schema and the integration
+boundary for future chat and web research. Those services are not enabled by
+this report change; suggested external sources are labeled as not consulted.
+
 Run the regression checks without loading the weight bundle:
 
 ```bash
-python -m unittest -v test_analysis
+python -m unittest -v test_analysis test_evidence_report
 node test_explorer.js
 ```

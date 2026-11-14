@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 from progress_timing import RunTiming
+from evidence_report import build_report, render_export
 
 
 MAX_CHUNK = 8 * 1024 * 1024
@@ -24,6 +25,7 @@ STATIC_FILES = {"index.html": "text/html", "change.html": "text/html",
                 "change.js": "text/javascript", "navigation.css": "text/css"}
 STATIC_FILES["explorer.js"] = "text/javascript"
 STATIC_FILES["results-evidence.js"] = "text/javascript"
+STATIC_FILES["report-view.js"] = "text/javascript"
 # Only these icon files may be served from /icons/ (no arbitrary paths).
 ICON_FILES = frozenset({"zoom-in", "zoom-out", "recenter", "fullscreen", "exit-fullscreen",
                         "split-handle", "swatch", "swatch-selected", "dot-t0", "dot-t1"})
@@ -131,7 +133,22 @@ def create_app(demo, root: Path, names):
         with demo.lock:
             revision = demo.result_revision
             data = getattr(demo, "last_result", None) if revision is not None else None
+        # The UI can adopt an already completed result from before the structured report upgrade.
+        if data is not None and "evidence_report" not in data:
+            data = {**data,"evidence_report":build_report(data)}
         return {"result": data, "result_revision": revision}
+
+    @app.get("/report.{format}")
+    def report_export(format: str, v: str = ""):
+        if format not in {"md","txt"}:
+            return error(404,"Choose a Markdown or plain-text report.")
+        with demo.lock:
+            if demo.result_revision is None or v != str(demo.result_revision) or demo.last_result is None:
+                return error(410,"This result is no longer available")
+            data = demo.last_result
+        contents = render_export(data,format)
+        return Response(contents,media_type="text/markdown" if format=="md" else "text/plain",
+                        headers={"Content-Disposition":f'attachment; filename="nisar-evidence-report-{v}.{format}"'})
 
     @app.get("/decoder-inputs")
     def decoder_inputs(v: str = ""):

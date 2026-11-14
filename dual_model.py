@@ -476,7 +476,7 @@ class QwenModel:
         with torch.inference_mode():
             handle=self.vision.register_forward_hook(observed)
             # The checkpoint can carry sampling defaults even for greedy reports.
-            greedy=dict(max_new_tokens=256,do_sample=False,num_beams=1,
+            greedy=dict(max_new_tokens=640,do_sample=False,num_beams=1,
                         repetition_penalty=1.08,
                         temperature=1.0,top_p=1.0,top_k=50)
             if self.has_adapter:

@@ -225,7 +225,7 @@
 <section id="results" class="results-v2" hidden aria-label="Change detection results">
   <div class="results-shell">
     <div class="results-crumb">Projects / Analysis / Results</div>
-    <div class="results-hero"><h2>Change detection results</h2><span class="results-badge">✓ Analysis complete</span><span class="results-sample">REAL SAMPLE · MEASURED REPORT</span></div>
+    <div class="results-hero"><h2>Change detection results</h2><span class="results-badge">✓ Analysis complete</span><span class="results-sample">PAIRED IMAGE ANALYSIS</span></div>
     <div class="results-meta"><span>NISAR L2 GCOV</span><span id="resultDates"></span><span id="resultDays"></span><button type="button" class="crs-help" id="resultEpsg" aria-haspopup="dialog"></button></div>
     <div class="results-grid">
       <div class="results-map-card">
@@ -267,7 +267,7 @@
           <p id="resultPatternNote" class="results-pattern-note"></p>
         </section>
     <section class="results-science" aria-labelledby="resultScienceTitle">
-      <div class="results-science-head"><h3 id="resultScienceTitle">Evidence &amp; scientific details</h3><a id="resultDownload" class="results-outline" download="change.png">↓ Download PNG</a><a id="resultJson" class="results-outline" download>↓ Measurements JSON</a><a id="resultCsv" class="results-outline" download>↓ Sector CSV</a><button id="resultOpenReport" class="results-primary" type="button">▣ View measured report</button></div>
+      <div class="results-science-head"><h3 id="resultScienceTitle">Evidence &amp; scientific details</h3><a id="resultDownload" class="results-outline" download="change.png">↓ Download PNG</a><a id="resultJson" class="results-outline" download>↓ Measurements JSON</a><a id="resultCsv" class="results-outline" download>↓ Sector CSV</a><button id="resultOpenReport" class="results-primary" type="button">▣ Evidence &amp; interpretation</button></div>
       <p class="evidence-intro">Check coverage, image comparability, and how the measurements were made before drawing an environmental conclusion.</p>
       <div class="results-detail-grid"><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">◇</span><div><span>Selection coverage</span><strong id="resultCoverage"></strong></div></div><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">▥</span><div><span>Top flagged sectors</span><strong id="resultSectors"></strong></div></div><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">◇</span><div><span>Acquisition geometry</span><strong id="resultGeometry"></strong></div></div></div>
       <div id="scienceWarnings" class="science-warnings" role="status"></div>
@@ -282,12 +282,13 @@
     </section>
   </div>
   <dialog id="resultReportDialog" class="results-report-dialog" aria-labelledby="resultReportTitle">
-    <div class="results-report-head"><h3 id="resultReportTitle">Measured report</h3><button id="resultCloseReport" type="button" aria-label="Close report">×</button></div>
+    <div class="results-report-head"><h3 id="resultReportTitle">Evidence &amp; interpretation</h3><div class="report-export-actions"><a id="reportMarkdown" class="results-outline" download>↓ Markdown</a><a id="reportText" class="results-outline" download>↓ Plain text</a><button id="resultCloseReport" type="button" aria-label="Close report">×</button></div></div>
     <div class="results-report-body">
-      <section><h4>What might explain the change?</h4><div id="hypotheses"></div><p id="interpretationNote"></p></section>
-      <div id="reportSections"></div>
-      <details id="decoderInputs" hidden><summary>Inspect decoder inputs</summary><div id="decoderBody"></div></details>
-      <details><summary>Metadata and measurements</summary><pre id="details"></pre></details>
+      <section class="report-finding" aria-labelledby="reportFindingTitle"><span class="report-eyebrow">1 · Main finding</span><h4 id="reportFindingTitle"></h4><p id="reportFindingNote"></p></section>
+      <section class="report-evidence-section" aria-labelledby="reportEvidenceTitle"><h4 id="reportEvidenceTitle">2 · Evidence</h4><div id="reportEvidence" class="report-evidence-chips"></div><div id="reportCharts" class="report-charts"></div></section>
+      <section aria-labelledby="reportInterpretationTitle"><h4 id="reportInterpretationTitle">3 · Possible explanation</h4><div id="reportInterpretation" class="report-interpretation-grid"></div></section>
+      <section aria-labelledby="reportChecksTitle"><h4 id="reportChecksTitle">4 · Next checks</h4><p class="report-small">Suggested independent sources. They have not been retrieved or consulted.</p><div id="reportChecks" class="report-checks"></div></section>
+      <details class="report-technical"><summary>Evidence references, model output &amp; technical details</summary><div id="reportReferences"></div><p id="reportValidation" class="report-small"></p><details id="decoderInputs" hidden><summary>Inspect decoder inputs</summary><div id="decoderBody"></div></details><details><summary>Full analysis data and original model output</summary><pre id="details"></pre></details></details>
     </div>
   </dialog>
 </section>
@@ -295,6 +296,7 @@
 <script src="/zoom.js"></script>
 <script src="/explorer.js"></script>
 <script src="/results-evidence.js"></script>
+<script src="/report-view.js"></script>
 <script src="/results.js"></script>
 <script src="/pick.js"></script>
 </html>

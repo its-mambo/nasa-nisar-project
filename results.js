@@ -180,33 +180,17 @@ resultsEl("resultOpenReport").addEventListener("click", () => resultsEl("resultR
 resultsEl("resultCloseReport").addEventListener("click", () => resultsEl("resultReportDialog").close());
 resultsEl("resultReportDialog").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 
-function showInterpretation(data) {
-  const root = resultsEl("hypotheses");
-  root.replaceChildren();
-  if (data.source === "visual") {
-    const p = document.createElement("p");
-    p.style.whiteSpace = "pre-wrap";
-    p.textContent = data.summary === "" ? "Qwen returned no text." : data.summary;
-    root.append(p);
-    resultsEl("interpretationNote").textContent = (data.decoder === "qwen_lora" ? "Qwen + decoder LoRA. " : "Base Qwen. ") + "AI interpretation. The standalone map shows detector flags; the Results map overlays them in blue. " + data.limitation;
-    return;
-  }
-  [data.primary,...data.alternatives].forEach((item,i) => {
-    const heading = document.createElement("h4");
-    heading.textContent = (i ? "Also worth checking: " : "") + item.title;
-    root.append(heading);
-    for (const [label,value] of [["What the radar shows",item.evidence],
-                                ["Interpretation",item.possibility],
-                                ["How to check",item.check]]) {
-      const p = document.createElement("p");
-      const strong = document.createElement("strong");
-      strong.textContent = label + ": ";
-      p.append(strong,value);
-      root.append(p);
-    }
-  });
-  resultsEl("interpretationNote").textContent = (data.visual_note ? data.visual_note + " " : "") + data.limitation +
-    (data.source === "qwen" ? " Hypotheses ranked by Qwen." : " No decoder ranking was used.");
+function inspectReportSector(zone) {
+  const zones=["upper left","upper center","upper right","middle left","center","middle right","lower left","lower center","lower right"];
+  const index=zones.indexOf(zone);
+  if(index<0 || !resultViewport.width) return;
+  resultViewport.scale=Math.min(resultViewport.maxScale(),resultViewport.fitScale*2.7);
+  resultViewport.x=resultViewport.w/2-((index%3+.5)/3)*resultViewport.width*resultViewport.scale;
+  resultViewport.y=resultViewport.h/2-((Math.floor(index/3)+.5)/3)*resultViewport.height*resultViewport.scale;
+  resultViewport.clamp(); resultViewport.invalidate();
+  resultsEl("resultReportDialog").close();
+  resultCanvas.scrollIntoView({behavior:"smooth",block:"center"});
+  saveResultPreferences({viewport:Nisar.captureViewport(resultViewport)});
 }
 
 function renderDecoderInputs(root,data) {
@@ -312,15 +296,7 @@ function showResultsV2(data) {
   inspector.hidden = !data.decoder_inputs_url;
   loadedDecoderUrl = undefined;
   resultsEl("decoderBody").replaceChildren();
-  const sections = resultsEl("reportSections");
-  sections.replaceChildren();
-  for (const item of data.report_sections || []) {
-    const h = document.createElement("h4"), p = document.createElement("p");
-    h.textContent = item.title;
-    p.textContent = item.text;
-    sections.append(h, p);
-  }
-  showInterpretation(data.interpretation);
+  NisarReport.render(data,{onInspectSector:inspectReportSector});
   resultsEl("details").textContent = JSON.stringify(data,null,2);
   resultsEl("pickPage").hidden = true;
   // "/#results" reopens this tab (used by the Results link on the Change page).

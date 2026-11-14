@@ -3,6 +3,7 @@ import json
 
 from roi_report import acquisition_date
 from roi_visual import PANEL_NAMES
+from evidence_report import evidence_catalog
 
 
 SYSTEM = """Interpret paired NISAR HH/HV radar images for a researcher.
@@ -28,13 +29,30 @@ If no specific mechanism is supported, say what the evidence cannot distinguish.
 Do not use vague substitutes like "different surface conditions." With no
 flags or an acquisition comparability warning, leave physical attribution open.
 
-For "How to check", name an independent source, what to compare at the flagged
+For verification, name an independent source, what to compare at the flagged
 location near both dates, and what result would weaken the hypothesis. If the
 cause is unresolved, name a check that distinguishes plausible alternatives.
 Do not just repeat the flagged-versus-unflagged comparison already supplied.
 
-Use three short plain-text sections: What the radar shows, Possible explanation,
-and How to check. The measured report already lists the numbers."""
+Return ONLY one JSON object with exactly these keys:
+{"observations":[{"text":"one short visual observation","evidence_refs":["image:t0","image:t1"]}],
+ "hypothesis":{"title":"short unconfirmed explanation","explanation":"why it may fit",
+   "evidence_refs":["ai:observation:1"],"uncertainties":["what remains unknown"]},
+ "verification":[{"source_type":"optical_imagery","compare":"what to compare at the location near both dates",
+   "supports":"a result that supports the hypothesis","weakens":"a result that weakens it"}]}
+Use at most two observations, one hypothesis, and two verification steps.
+Use hypothesis:null when cause is unresolved, there are no flags, or acquisition warnings exist.
+Observation references must be IDs from the evidence catalog below. Observations
+are assigned ai:observation:1 and ai:observation:2 in their array order; hypotheses
+may cite those IDs or catalog IDs. Every claim needs at least one reference.
+Keep observation text below 280 characters, explanation below 350 characters,
+and each verification field below 200 characters. Include one or two uncertainties.
+Do not repeat a claim in another section. Do not include numeric measurements,
+percentages, confidence scores, dates, or areas in generated sentences: the app
+displays exact values separately from the cited evidence. Use Before and After.
+Allowed source_type values: optical_imagery, additional_radar_date, water_records,
+land_cover_reference, field_observations, weather_records. These are recommendations:
+no external sources were consulted. Do not invent URLs, citations, or search results."""
 
 
 def messages(result):
@@ -51,12 +69,13 @@ def messages(result):
     evidence={
         "total_flagged_cells":result["changed_pixels"],
         "total_valid_cells":result["valid_pixels"],
-        "paired_sector_deltas_db_T1_minus_T0_HH_then_HV":result.get("paired_sector_deltas",[]),
+        "evidence_catalog":[{key:item[key] for key in ("id","kind","label","display","cells") if key in item}
+                            for item in evidence_catalog(result)],
         "acquisition_warnings":result.get("warnings") or [],
     }
     content.append({"type":"text","text":(
         "\nMeasured evidence (null deltas mean insufficient samples):\n"
         +json.dumps(evidence,ensure_ascii=False,allow_nan=False)
-        +"\nDescribe the main supported change and what might explain it."
+        +"\nReturn concise JSON claims with evidence IDs. Leave the cause unresolved if support is insufficient."
     )})
     return [{"role":"system","content":SYSTEM},{"role":"user","content":content}]

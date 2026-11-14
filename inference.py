@@ -16,6 +16,7 @@ import numpy as np
 from PIL import Image
 from roi_interpretation import interpret, radar_patterns
 from roi_report import paired_sector_deltas, report_sections, scene_observations
+from evidence_report import build_report
 from roi_visual import DecoderTrace, QWEN_ALIGNMENT, native_views, native_change_map
 from roi_interpretation import LIMIT
 from dual_model import (QwenModel, SarModel, attach_adapter, convert_weights,
@@ -329,6 +330,7 @@ class Demo:
             logging.exception("Qwen interpretation unavailable")
             result["interpretation"]=interpret(pattern_evidence,result,lambda _: [])
             result["interpretation"]["visual_note"]="Qwen interpretation unavailable; showing measured evidence."
+        result["evidence_report"] = build_report(result)
         result["timing_s"]={"input_and_render":round(ready-started,3),
                             "detection_classification_and_early_vision":round(detected-ready,3),
                             "qwen_report":round(perf_counter()-report_started,3)}
