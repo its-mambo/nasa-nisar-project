@@ -39,6 +39,8 @@ class RasterViewport {
     this.width = width;
     this.height = height;
     this.size();
+    // size() returns early when the canvas is unchanged, so refit for the new raster here.
+    if (width && height && this.w && this.h) this.fitScale = Math.min(1, this.w/width, this.h/height);
     this.scale = this.fitScale;
     this.x = this.y = Infinity;
     this.clamp();
@@ -83,6 +85,22 @@ class RasterViewport {
   visible() {
     const [x, y] = this.pixel(0, 0), [X, Y] = this.pixel(this.w, this.h);
     return [Math.max(0,x), Math.max(0,y), Math.min(this.width,X), Math.min(this.height,Y)];
+  }
+
+  zoomBy(factor, x = this.w/2, y = this.h/2) {
+    if (!this.width || !this.w) return;
+    const [col, row] = this.pixel(x, y);
+    this.scale = Math.max(this.fitScale, Math.min(8, this.scale * factor));
+    this.x = x - col * this.scale;
+    this.y = y - row * this.scale;
+    this.clamp();
+    this.invalidate();
+  }
+
+  fit() {
+    this.scale = this.fitScale;
+    this.clamp();
+    this.invalidate();
   }
 
   pan(dx, dy) {
