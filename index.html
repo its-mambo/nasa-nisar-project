@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NISAR crop demo</title>
+<style>
+  #report { max-width: 78ch; line-height: 1.55; }
+  #interpretation { border-left: 3px solid #64748b; padding-left: 1rem; margin: 1.4rem 0; }
+  #openViewer { display: inline-block; padding: .7rem 1rem; font: 600 1.1rem system-ui; border: 1px solid; border-radius: .4rem; }
+  #preview { display:block; width:min(100%, 1400px); height:clamp(320px, 72vh, 950px); background:#171b22; touch-action:none; cursor:crosshair; }
+  #preview.panning { cursor:grabbing; }
+  #decoderInputs { margin: 1rem 0; }
+  #decoderInputs summary { cursor: pointer; font-weight: 600; }
+  #decoderInputs pre { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 95ch; }
+  .decoder-panels { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%, 180px),1fr)); gap: 1rem; max-width: 52rem; }
+  .decoder-panels figure { margin: 0; }
+  .decoder-panels figcaption { margin-top: .35rem; font: .9rem/1.4 system-ui; }
+  .decoder-raster { display: block; position: relative; max-width: 256px; }
+  .decoder-raster img { width: 100%; height: auto; display: block; }
+  .decoder-window { position: absolute; box-sizing: border-box; border: 2px solid white; outline: 1px solid #161616; pointer-events: none; }
+  .decoder-window span { background: #161616; color: white; padding: 0 .25rem; font: .8rem system-ui; }
+  .decoder-panels.hide-windows .decoder-window { display: none; }
+</style>
+<h1>NISAR change detection</h1>
+<form id="upload">
+  <fieldset>
+    <legend>Load a NISAR pair</legend>
+    <p>Choose two GCOV files from this device. The server needs no file paths at startup.</p>
+    <p><label for="t0">T0 — earlier image</label><br>
+      <input id="t0" name="t0" type="file" accept=".h5,.hdf5" required></p>
+    <p><label for="t1">T1 — later image</label><br>
+      <input id="t1" name="t1" type="file" accept=".h5,.hdf5" required></p>
+    <button type="submit">Upload and prepare</button>
+    <div id="uploadProgress" hidden>
+      <label for="transferProgress">Pair upload progress</label>
+      <progress id="transferProgress" value="0" max="1"></progress>
+      <span id="transferPercent">0%</span>
+    </div>
+  </fieldset>
+</form>
+<p id="status" role="status" aria-live="polite">Choose two L-SAR GCOV products.</p>
+<section id="select" hidden>
+  <p>Drag a box inside the white common footprint. For exact selection, edit the native T0 pixel coordinates below.</p>
+  <p><strong>Ctrl + mouse wheel</strong> to zoom. Drag with the middle mouse button to pan.</p>
+  <p><label for="previewMode">Preview:</label>
+    <select id="previewMode">
+      <option value="rg">HH red / HV green</option>
+      <option value="hh">HH grayscale</option>
+    </select></p>
+  <canvas id="preview" aria-label="T0 radar preview"></canvas>
+  <form id="infer">
+    <p><label>Left <input id="left" type="number" step="1" required></label>
+       <label>Top <input id="top" type="number" step="1" required></label>
+       <label>Right <input id="right" type="number" step="1" required></label>
+       <label>Bottom <input id="bottom" type="number" step="1" required></label></p>
+    <button>Run model on selection</button>
+  </form>
+  <pre id="pairInfo"></pre>
+</section>
+<section id="results" hidden>
+  <h2>Selected area</h2>
+  <p id="area"></p>
+  <p id="label"></p>
+  <p><a id="openViewer" target="_blank" rel="noopener">Open image viewer ↗</a></p>
+  <details id="decoderInputs" hidden>
+    <summary>Inspect decoder inputs</summary>
+    <div id="decoderBody"></div>
+  </details>
+  <div id="report">
+    <section id="interpretation">
+      <h3>What might explain the change?</h3>
+      <div id="hypotheses"></div>
+      <p id="interpretationNote"></p>
+    </section>
+    <h3>Measured report</h3>
+    <div id="reportSections"></div>
+  </div>
+  <details><summary>Metadata and measurements</summary><pre id="details"></pre></details>
+</section>
+<script src="/zoom.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const preview = $("preview");
+const fields = ["left","top","right","bottom"].map($);
+let state, photo, start, pointer, busy = false, mode = "rg";
+const tiles = new Map();
+let inFlight = 0;
+const view = new RasterViewport(preview, paint);
+view.enableDrag(1);
+
+function status(message) { $("status").textContent = message; }
+function setBusy(value) {
+  busy = value;
+  for (const el of document.querySelectorAll("form input,form button")) el.disabled = value;
+}
+async function post(path,body=null,extra={}) {
+  const headers = {"X-Nisar-Demo":"1",...extra};
+  let r, raw;
+  try {
+    r = await fetch(path,{method:"POST",headers,body});
+    raw = await r.text();
+  } catch (err) {
+    throw new Error(`${path}: connection interrupted (${err.message}). Check the demo terminal.`);
+  }
+  let data;
+  try { data = JSON.parse(raw); }
+  catch {
+    throw new Error(`${path}: HTTP ${r.status}; ${raw.trim() ? "server returned non-JSON" : "empty response"}. Check the demo terminal.`);
+  }
+  if (!r.ok) throw new Error(`${path}: HTTP ${r.status} — ${data.error || "request failed"}`);
+  return data;
+}
+function showProgress(received,total) {
+  $("transferProgress").max = total;
+  $("transferProgress").value = received;
+  $("transferPercent").textContent = `${Math.floor(100*received/total)}%`;
+}
+async function uploadFile(name,file,onProgress) {
+  const chunk = 8 * 1024 * 1024;
+  if (!file.size) throw new Error(`${name.toUpperCase()} is empty.`);
+  for (let offset=0; offset<file.size;) {
+    const end = Math.min(offset+chunk,file.size);
+    status(`Uploading ${name.toUpperCase()}: ${(100*offset/file.size).toFixed(1)}% (${file.name})…`);
+    const ack = await post("/upload/"+name,file.slice(offset,end),{
+      "Content-Type":"application/octet-stream",
+      "X-Upload-Offset":String(offset),
+      "X-Upload-Size":String(file.size)
+    });
+    if (ack.received !== end || ack.complete !== (end === file.size)) {
+      throw new Error(`${name.toUpperCase()}: invalid upload acknowledgement. Restart the demo and refresh the page.`);
+    }
+    offset = end;
+    onProgress(offset);
+  }
+}
+function setBox(box) {
+  fields.forEach((f,i) => { f.value = box[i]; });
+  draw();
+}
+function draw() { view.invalidate(); }
+function paint(ctx) {
+  if (!photo || !state) return;
+  const s = state.stride;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0,0,state.width,state.height); ctx.clip();
+  ctx.drawImage(photo,0,0,photo.naturalWidth*s,photo.naturalHeight*s);
+  paintTiles(ctx);
+  ctx.restore();
+  const [x,y,X,Y] = state.overlap;
+  ctx.strokeStyle = "white"; ctx.lineWidth = 2/view.scale;
+  ctx.strokeRect(x,y,X-x,Y-y);
+  const [a,b,c,d] = fields.map(f => f.valueAsNumber);
+  if (![a,b,c,d].every(Number.isFinite)) return;
+  ctx.fillStyle = "rgba(255,200,30,0.2)"; ctx.strokeStyle = "#ffc81e";
+  ctx.fillRect(a,b,c-a,d-b);
+  ctx.strokeRect(a,b,c-a,d-b);
+}
+function paintTiles(ctx) {
+  const step = 2**Math.max(0,Math.floor(Math.log2(1/view.scale)));
+  if (step >= state.stride) return;
+  const span = step*state.preview_tile_size;
+  const [x,y,X,Y] = view.visible();
+  const needed = [];
+  for (let row=Math.floor(y/span); row<Math.ceil(Y/span); row++) {
+    for (let col=Math.floor(x/span); col<Math.ceil(X/span); col++) {
+      const url = `/preview-tile.png?v=${state.revision}&mode=${mode}&step=${step}&col=${col}&row=${row}`;
+      const tile = tiles.get(url);
+      if (tile) {
+        tiles.delete(url); tiles.set(url,tile);
+        if (tile.ready) {
+          const w = tile.image.naturalWidth*step, h = tile.image.naturalHeight*step;
+          ctx.clearRect(col*span,row*span,w,h);
+          ctx.drawImage(tile.image,col*span,row*span,w,h);
+        }
+      } else {
+        needed.push({url, distance:Math.hypot((col+.5)*span-(x+X)/2,(row+.5)*span-(y+Y)/2)});
+      }
+    }
+  }
+  needed.sort((a,b) => a.distance-b.distance);
+  for (const {url} of needed.slice(0,Math.max(0,4-inFlight))) {
+    const image = new Image(), tile = {image,ready:false};
+    tiles.set(url,tile);
+    inFlight++;
+    image.src = url;
+    image.decode().then(() => { tile.ready = true; }, () => {
+      // Keep the overview visible if a tile is unavailable.
+    }).finally(() => { inFlight--; draw(); });
+  }
+  while (tiles.size > 64) tiles.delete(tiles.keys().next().value);
+}
+function point(e) {
+  const [x,y,X,Y] = state.overlap;
+  const [nx,ny] = view.pixel(...view.local(e));
+  return [Math.max(x,Math.min(X,nx)),Math.max(y,Math.min(Y,ny))];
+}
+preview.addEventListener("pointerdown",e => {
+  if (busy || !state || !e.isPrimary || e.button !== 0) return;
+  start = point(e); pointer = e.pointerId;
+  preview.setPointerCapture(pointer);
+  setBox([Math.floor(start[0]),Math.floor(start[1]),Math.ceil(start[0]),Math.ceil(start[1])]);
+});
+function drag(e) {
+  if (!start || e.pointerId !== pointer) return;
+  const [x,y] = point(e);
+  setBox([Math.floor(Math.min(x,start[0])),Math.floor(Math.min(y,start[1])),
+          Math.ceil(Math.max(x,start[0])),Math.ceil(Math.max(y,start[1]))]);
+}
+preview.addEventListener("pointermove",drag);
+preview.addEventListener("pointerup",e => {
+  if (e.pointerId === pointer) { drag(e); start = null; pointer = null; }
+});
+preview.addEventListener("lostpointercapture",e => {
+  if (e.pointerId === pointer) { start = null; pointer = null; }
+});
+fields.forEach(f => f.addEventListener("input",draw));
+
+async function loadPreview(data,mode) {
+  const img = new Image();
+  img.src = mode === "hh" ? (data.preview_hh_url || data.preview_url) : data.preview_url;
+  await img.decode();
+  return img;
+}
+$("previewMode").addEventListener("change",async () => {
+  if (!state) return;
+  const pair = state, requestedMode = $("previewMode").value;
+  try {
+    const img = await loadPreview(pair,requestedMode);
+    if (state !== pair || $("previewMode").value !== requestedMode) return;
+    photo = img; mode = requestedMode;
+    draw();
+  } catch (err) {
+    if (state === pair) status("Could not switch preview: "+err.message);
+  }
+});
+
+async function showPair(data) {
+    $("previewMode").value = "rg";
+    const img = await loadPreview(data,"rg");
+    state = data; photo = img; mode = "rg"; tiles.clear();
+    fields.forEach(f => { f.value = ""; });
+    $("pairInfo").textContent = `Native T0: ${state.width} × ${state.height} px | EPSG:${state.epsg}\n`+
+      `Native spacing: ${state.native_spacing_m.join(" × ")} m | Model: ${state.model_spacing_m} m\n`+
+      state.warnings.join("\n");
+    $("select").hidden = false;
+    view.setRaster(state.width,state.height);
+    status("Draw a selection on T0.");
+}
+
+(async () => {
+  setBusy(true);
+  try {
+    const r = await fetch("/pair");
+    if (r.ok) {
+      const {pair} = await r.json();
+      if (pair) await showPair(pair);
+    }
+  } catch (err) { status("Could not load the current pair: "+err.message); }
+  finally { setBusy(false); }
+})();
+
+$("upload").addEventListener("submit",async e => {
+  e.preventDefault();
+  if (busy) return;
+  const files = [$("t0").files[0],$("t1").files[0]];
+  if (files.some(f => !f || !f.size || !/\.(h5|hdf5)$/i.test(f.name))) {
+    status("Choose a non-empty .h5 or .hdf5 file for each date.");
+    return;
+  }
+  state = null; photo = null; $("select").hidden = $("results").hidden = true;
+  const total = files[0].size + files[1].size;
+  $("uploadProgress").hidden = false;
+  showProgress(0,total);
+  setBusy(true);
+  try {
+    let sent = 0;
+    for (const [i,name] of ["t0","t1"].entries()) {
+      await uploadFile(name,files[i],received => showProgress(sent+received,total));
+      sent += files[i].size;
+    }
+    status("Both files uploaded. Preparing the T0 preview…");
+    await showPair(await post("/prepare"));
+  } catch (err) { status(err.message); }
+  finally { setBusy(false); }
+});
+
+$("openViewer").addEventListener("click", e => {
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+  const popup = window.open(e.currentTarget.href,"nisar-image-viewer","popup,width=1220,height=900");
+  if (popup) {
+    popup.opener = null;
+    popup.focus();
+    e.preventDefault();
+  }
+});
+
+function showInterpretation(data) {
+  const root = $("hypotheses");
+  root.replaceChildren();
+  if (data.source === "visual") {
+    const p = document.createElement("p");
+    p.style.whiteSpace = "pre-wrap";
+    p.textContent = data.summary === "" ? "Qwen returned no text." : data.summary;
+    root.append(p);
+    $("interpretationNote").textContent = (data.decoder === "qwen_lora" ? "Qwen + decoder LoRA. " : "Base Qwen. ") + "AI interpretation. The standalone map shows detector flags; the viewer overlays them in blue. " + data.limitation;
+    return;
+  }
+  [data.primary,...data.alternatives].forEach((item,i) => {
+    const heading = document.createElement("h4");
+    heading.textContent = (i ? "Also worth checking: " : "") + item.title;
+    root.append(heading);
+    for (const [label,value] of [["What the radar shows",item.evidence],
+                                ["Interpretation",item.possibility],
+                                ["How to check",item.check]]) {
+      const p = document.createElement("p");
+      const strong = document.createElement("strong");
+      strong.textContent = label + ": ";
+      p.append(strong,value);
+      root.append(p);
+    }
+  });
+  $("interpretationNote").textContent = (data.visual_note ? data.visual_note + " " : "") + data.limitation +
+    (data.source === "qwen" ? " Hypotheses ranked by Qwen." : " No decoder ranking was used.");
+}
+
+function renderDecoderInputs(root,data) {
+  function element(tag,value) {
+    const el = document.createElement(tag);
+    if (value !== undefined) el.textContent = String(value);
+    return el;
+  }
+  root.replaceChildren(element("p",
+    "Qwen receives clean T0, clean T1, and a standalone detector map on the same grid." +
+    (data.streams.length ? "" : " The run stopped before visual tokens were captured.")));
+  const groups = new Map();
+  for (const panel of data.panels) {
+    if (!groups.has(panel.group)) groups.set(panel.group,[]);
+    groups.get(panel.group).push(panel);
+  }
+  for (const [group,panels] of groups) {
+    const w = data.windows[group-1];
+    root.append(element("h4",w ? "Close-up " + w.number + " · " + w.zone + " · model-grid box [" + w.model_box.join(", ") + "]" : "Selected area overview"));
+    const grid = element("div");
+    grid.className = "decoder-panels";
+    if (!group && data.windows.length) {
+      const label = element("label"), toggle = element("input");
+      toggle.type = "checkbox"; toggle.checked = true;
+      toggle.addEventListener("change",() => grid.classList.toggle("hide-windows",!toggle.checked));
+      label.append(toggle," Mark close-ups on the overview");
+      root.append(label);
+    }
+    for (const panel of panels) {
+      const figure = element("figure"), raster = element("a"), img = element("img");
+      raster.className = "decoder-raster";
+      raster.href = panel.url; raster.target = "_blank"; raster.rel = "noopener";
+      img.src = panel.url; img.alt = panel.label; img.loading = "lazy";
+      [img.width,img.height] = panel.pixels;
+      raster.append(img);
+      if (panel.slot === 0) {
+        for (const close of data.windows) {
+          const box = element("span"), n = element("span",close.number);
+          const [x,y,w,h] = close.panel_rect.map((v,i) => v/panel.pixels[i%2]*100+"%");
+          box.className = "decoder-window";
+          box.style.left = x; box.style.top = y; box.style.width = w; box.style.height = h;
+          box.setAttribute("aria-hidden","true");
+          box.append(n); raster.append(box);
+        }
+      }
+    const source = "Qwen vision";
+      const [first,end] = panel.token_rows;
+      figure.append(raster,element("figcaption",panel.label + " · " + source + " · " + panel.pixels.join(" × ") + " px · " + (end-first) + " visual token slots"));
+      grid.append(figure);
+    }
+    root.append(grid);
+  }
+  if (data.streams.length) {
+    root.append(element("p","Qwen visual streams: " +
+      data.streams.map(s => s.name + " " + s.shape.join(" × ") + " (" + s.dtype + ")").join("; ") + "."));
+  }
+  if (data.tensor_url) {
+    const a = element("a","Download visual token tensors (.npz)");
+    a.href = data.tensor_url; a.download = "decoder-tokens.npz";
+    root.append(a);
+  }
+  data.attempts.forEach((attempt,i) => {
+    const d = element("details");
+    d.append(element("summary","Attempt " + (i+1) + " · prompt (" + attempt.input_token_count + " input tokens) and raw response"));
+    d.append(element("pre",attempt.prompt));
+    d.append(element("p",attempt.reused_t0_t1_features ? "Reused cached T0/T1 features and encoded the standalone map separately." : "Encoded all three panels together."));
+    d.append(element("h4","Raw response"));
+    d.append(element("pre",attempt.raw_answer ?? "Generation did not produce a response."));
+    root.append(d);
+  });
+}
+
+const inspector = $("decoderInputs");
+let loadedDecoderUrl;
+inspector.addEventListener("toggle",async () => {
+  const url = inspector.dataset.url;
+  if (!inspector.open || !url || loadedDecoderUrl === url) return;
+  loadedDecoderUrl = url;
+  const root = $("decoderBody");
+  root.textContent = "Loading decoder inputs…";
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("Decoder inputs are no longer available for this result.");
+    const data = await r.json();
+    if (inspector.dataset.url === url) renderDecoderInputs(root,data);
+  } catch (err) {
+    if (inspector.dataset.url === url) {
+      loadedDecoderUrl = undefined;
+      root.textContent = err.message;
+    }
+  }
+});
+
+$("infer").addEventListener("submit",async e => {
+  e.preventDefault();
+  if (busy || !state) return;
+  $("results").hidden = true; setBusy(true);
+  try {
+    status("Reading native pixels and running the model…");
+    const r = await post("/infer",JSON.stringify({box:fields.map(f=>f.valueAsNumber),revision:state.revision}),{"Content-Type":"application/json"});
+    const a = r.roi;
+    $("area").textContent = `${a.width_px} × ${a.height_px} native px | ${a.projected_rectangle_km2} km² projected rectangle | EPSG:${a.epsg} | Bounds W, S, E, N: ${a.projected_bounds_wsen.join(", ")}`;
+    const prediction = r.predictions?.linear;
+    const names = {water_related:"Water-related change", other_change:"Other change"};
+    $("label").textContent = prediction ? "Model label: "+(names[prediction.label] || prediction.label) : "No label: "+r.status;
+    $("openViewer").href = r.viewer_url;
+    inspector.open = false;
+    inspector.dataset.url = r.decoder_inputs_url || "";
+    inspector.hidden = !r.decoder_inputs_url;
+    loadedDecoderUrl = undefined;
+    $("decoderBody").replaceChildren();
+    $("reportSections").replaceChildren();
+    for (const item of r.report_sections) {
+      const h = document.createElement("h4"), p = document.createElement("p");
+      h.textContent = item.title;
+      p.textContent = item.text;
+      $("reportSections").append(h,p);
+    }
+    showInterpretation(r.interpretation);
+    $("details").textContent = JSON.stringify(r,null,2);
+    $("results").hidden = false;
+    status(`Finished. Detector flagged ${r.changed_pixels} of ${r.valid_pixels} valid model-grid pixels.`);
+  } catch (err) { status(err.message); }
+  finally { setBusy(false); }
+});
+</script>
+</html>
