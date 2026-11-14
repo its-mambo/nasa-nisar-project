@@ -7,17 +7,24 @@ loaded models and current pair are shared in memory.
 
 ## Run on the model host
 
-Use Python 3.11 or newer. Install a PyTorch build that matches the host's GPU
-from the [official PyTorch selector](https://pytorch.org/get-started/locally/),
-then install the remaining dependencies:
+Use Python 3.11 or newer. Install a PyTorch build for the host from the
+[official PyTorch selector](https://pytorch.org/get-started/locally/), then
+install the remaining dependencies. For a CPU-only machine, use:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-# Install the PyTorch build selected for this machine first.
+python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 python -m pip install -r requirements.txt
 ```
+
+On a GPU host, replace the CPU-only PyTorch command with the command selected
+for that GPU. The model bundle in this checkout is roughly 6.4 GiB, and CPU
+loading uses float32, so allow substantially more free RAM than the bundle's
+file size. CPU inference can take a long time; a 15 GiB RAM machine may run out
+of memory while loading or analyzing. A CPU-only browser can instead connect
+to a teammate's GPU-hosted server.
 
 Keep the weight bundle and GCOV files on the host. To start with a prepared
 pair, run:
@@ -33,28 +40,16 @@ Omit `--t0` and `--t1` if users should upload a pair through the browser. Use
 `--work-dir /path/to/large/disk` when uploads or model extraction need more
 space. The server prints its URL after both models load.
 
-## Give teammates access
-
-For teammates in different locations, connect the host and both teammates to
-the same Tailscale network. On the host, leave `inference.py` bound to its
-default `127.0.0.1` address and, in another terminal, run:
+For a CPU-only local check, use a small selection after the server starts:
 
 ```bash
-tailscale serve 8000
+python inference.py --weights ./model.safetensors \
+  --sar-device cpu --qwen-device cpu --batch-size 1 \
+  --decoder-overview-size 256 --port 8000
 ```
 
-Share the `https://...ts.net/` URL printed by Tailscale. Both teammates open
-that URL in their browsers; the model runs only on the host. Tailscale Serve
-limits the URL to authorized members of that network. See the
-[Tailscale Serve guide](https://tailscale.com/docs/use-cases/application-testing/share-local-dev-server-with-team).
-
-On a trusted local network, `python inference.py ... --host 0.0.0.0 --port 8000`
-also works; teammates then open `http://HOST_LAN_IP:8000`. This demo has no
-application login, so do not expose that port directly to the public internet.
-
-**Shared-state limit:** the current pair and latest result belong to the whole
-server. If one person uploads a new pair or starts a new inference, an earlier
-result can become unavailable for everyone. Coordinate runs or use separate
-server instances when independent simultaneous work is needed. Keep one
-Uvicorn worker per instance, because each worker would load its own models and
-have different in-memory state.
+Open `http://127.0.0.1:8000`, upload an earlier and later NISAR L-SAR GCOV
+`.h5` pair, select a small area, and click **Run model on selection**. The
+weights alone do not contain the GCOV input files. Press Ctrl+C to stop the
+server. To avoid uploading, also pass `--t0 /path/to/earlier.h5` and
+`--t1 /path/to/later.h5` to the same command.

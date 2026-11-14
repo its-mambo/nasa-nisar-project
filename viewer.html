@@ -26,6 +26,7 @@
   <button id="t0" type="button" aria-pressed="false">T0</button>
   <button id="t1" type="button" aria-pressed="false">T1</button>
   <button id="change" type="button" aria-pressed="false">Change overlay</button>
+  <button id="grayscale" type="button" aria-pressed="false">HH grayscale</button>
 </header>
 <main>
   <p id="message" role="status">Loading image…</p>
@@ -48,7 +49,7 @@ const slides = [
   {id:"change",title:"T0 with change overlay"}
 ];
 const revision = new URLSearchParams(location.search).get("v");
-let current = 0, request = 0, photo;
+let current = 0, request = 0, photo, grayscale = false;
 const target = el("image");
 const view = new RasterViewport(target, ctx => {
   if (!photo) return;
@@ -61,7 +62,8 @@ async function show(index) {
   const id = ++request;
   const slide = slides[current], message = el("message");
   slides.forEach((s,i) => el(s.id).setAttribute("aria-pressed",String(i===current)));
-  el("caption").textContent = `${current+1} / ${slides.length} · ${slide.title}`;
+  el("grayscale").setAttribute("aria-pressed",String(grayscale));
+  el("caption").textContent = `${current+1} / ${slides.length} · ${slide.title}` + (grayscale ? " · HH grayscale" : " · HH/HV colour");
   target.hidden = true; el("download").hidden = true;
   message.hidden = false;
   if (!/^\d+$/.test(revision || "")) {
@@ -69,14 +71,14 @@ async function show(index) {
     return;
   }
   message.textContent = "Loading image…";
-  const file = slide.id + ".png", url = "/" + file + "?v=" + revision;
+  const file = slide.id + (grayscale ? "_hh" : "") + ".png", url = "/" + file + "?v=" + revision;
   const image = new Image();
   image.src = url;
   try {
     await image.decode();
     if (id !== request) return;
     photo = image;
-    target.setAttribute("aria-label",slide.title);
+    target.setAttribute("aria-label",slide.title + (grayscale ? " in HH grayscale" : " in HH/HV colour"));
     message.hidden = true; target.hidden = false;
     if (view.width !== image.naturalWidth || view.height !== image.naturalHeight) {
       view.setRaster(image.naturalWidth,image.naturalHeight);
@@ -91,6 +93,7 @@ async function show(index) {
   }
 }
 slides.forEach((s,i) => el(s.id).onclick = () => show(i));
+el("grayscale").onclick = () => { grayscale = !grayscale; show(current); };
 el("prev").onclick = () => show(current-1);
 el("next").onclick = () => show(current+1);
 document.addEventListener("keydown",e => {
