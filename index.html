@@ -39,12 +39,18 @@
         <canvas id="preview" aria-label="T0 radar preview"></canvas>
         <div id="mapUi" hidden>
           <div class="map-ui map-toolbar">
+            <div class="seg" role="group" aria-label="Preview date">
+              <button type="button" data-date="t0" aria-pressed="true">T0 · Before</button>
+              <button type="button" data-date="t1" aria-pressed="false">T1 · After</button>
+            </div>
             <div class="seg" role="group" aria-label="Preview">
               <button type="button" data-mode="rg" aria-pressed="true">HH / HV colour</button>
               <button type="button" data-mode="hh" aria-pressed="false">HH grayscale</button>
             </div>
             <div class="map-hint">Drag to select · <kbd>Ctrl</kbd> + wheel to zoom · middle-drag to pan</div>
           </div>
+          <div class="map-ui preview-date" id="previewDate">Before · T0</div>
+          <p id="previewStatus" class="preview-status" role="status" hidden></p>
           <div class="map-ui zoom">
             <button type="button" id="zoomIn" aria-label="Zoom in">+</button>
             <button type="button" id="zoomOut" aria-label="Zoom out">−</button>
@@ -78,7 +84,7 @@
       </div>
 
       <section class="card" id="pairCard" hidden>
-        <div class="card-head"><h2>Pair details</h2><span class="pill" id="freqPill"></span></div>
+        <div class="card-head"><h2>Pair details</h2><button class="pill frequency-info-button" id="freqPill" type="button" aria-haspopup="dialog"></button></div>
         <div class="card-body">
           <div class="pair-grid">
             <div class="pair-col">
@@ -103,6 +109,11 @@
     </div>
 
     <form id="infer" hidden>
+      <div class="run">
+        <button class="btn btn-primary" id="runBtn">Run model on selection →</button>
+        <p id="runNote">Draw a selection to enable the model run.</p>
+        <button class="link" id="analysisInfoBtn" type="button" aria-haspopup="dialog">How analysis works &amp; map details</button>
+      </div>
       <section class="card">
         <div class="card-head"><h2>Selection</h2><button type="button" class="link" id="clearBox">Clear</button></div>
         <div class="card-body">
@@ -110,27 +121,24 @@
             <button type="button" data-method="draw" aria-pressed="true">Draw on map</button>
             <button type="button" data-method="coords" aria-pressed="false">Coordinates</button>
           </div>
-          <div class="callout" id="drawHint">Drag a box inside the dashed common footprint. Switch to <b>Coordinates</b> to set native T0 pixels exactly.</div>
+          <div class="visually-hidden" id="drawHint">Drag a box inside the shared footprint. Before / After keeps the same selection.</div>
           <div class="coords" id="coords" hidden>
             <label>Left (x₀)<input id="left" type="number" step="1" required></label>
             <label>Top (y₀)<input id="top" type="number" step="1" required></label>
             <label>Right (x₁)<input id="right" type="number" step="1" required></label>
             <label>Bottom (y₁)<input id="bottom" type="number" step="1" required></label>
           </div>
-          <dl class="kv">
+          <dl class="kv selection-summary">
             <div><dt>Native size</dt><dd id="selPx">—</dd></div>
-            <div><dt>Model grid</dt><dd id="selCells">—</dd></div>
             <div><dt>Projected area</dt><dd id="selArea">—</dd></div>
-            <div><dt>Share of footprint</dt><dd id="selShare">—</dd></div>
-            <div><dt>Box (x₀, y₀ → x₁, y₁)</dt><dd id="selBox">—</dd></div>
           </dl>
         </div>
       </section>
 
       <section class="card">
-        <div class="card-head"><h2><label for="threshold">Change detection threshold</label></h2><output id="thresholdValue" for="threshold" class="pill">0.10</output></div>
+        <div class="card-head"><h2><label for="threshold">Change detection threshold</label></h2><input id="thresholdValue" class="threshold-number" type="number" min="0.01" max="0.99" step="0.01" value="0.10" required aria-label="Change detection threshold value" aria-describedby="thresholdError thresholdHelp"></div>
         <div class="card-body">
-          <p class="threshold-intro">Choose how strongly the model must score a change before flagging it.</p>
+          <p class="threshold-intro">Higher values flag fewer possible changes.</p>
           <div class="threshold-control">
             <input id="threshold" name="threshold" type="range" min="0.01" max="0.99" step="0.01" value="0.10" aria-orientation="vertical" aria-describedby="thresholdHelp thresholdHint">
             <div class="threshold-labels" aria-hidden="true">
@@ -139,50 +147,80 @@
               <div><b>0.1 · Most sensitive</b><span>Include more possible changes</span></div>
             </div>
           </div>
-          <p id="thresholdHint" class="threshold-hint" role="status">More sensitive · includes lower-scoring changes.</p>
-          <p id="thresholdHelp" class="threshold-help">Applies to the next model run. Scores are experimental; a low threshold can include false detections.</p>
+          <p id="thresholdError" class="threshold-error" role="status" hidden>Enter a value from 0.01 to 0.99 in steps of 0.01.</p>
+          <p id="thresholdHint" class="visually-hidden" role="status">More sensitive · includes lower-scoring changes.</p>
+          <p id="thresholdHelp" class="threshold-help">Applied on the next run. Experimental scores may include false detections.</p>
         </div>
       </section>
 
-      <section class="card">
-        <div class="card-head"><h2>Model</h2><span class="pill">Change detector + Qwen report</span></div>
-        <div class="card-body">
-          <div class="tiles">
-            <div class="tile"><b id="nativeSpacing">—</b><span>Native spacing</span></div>
-            <div class="tile"><b id="modelSpacing">—</b><span>Model spacing</span></div>
-          </div>
-          <div class="callout">Native T0 and T1 pixels are averaged to the model grid, then the detector flags changes and Qwen ranks possible explanations.</div>
-          <dl class="kv">
-            <div><dt>Grid</dt><dd id="gridSize">—</dd></div>
-            <div><dt>CRS</dt><dd id="crs">—</dd></div>
-          </dl>
-        </div>
-      </section>
-
-      <div class="run">
-        <button class="btn btn-primary" id="runBtn">Run model on selection →</button>
-        <p id="runNote">Draw a selection to enable the model run.</p>
-      </div>
-      <section id="modelProgress" class="card model-progress" hidden aria-labelledby="modelProgressTitle" aria-busy="false">
-        <div class="card-head"><h2 id="modelProgressTitle">Analyzing your area</h2><span id="modelElapsed" class="pill">0s</span></div>
-        <div class="card-body">
-          <ol class="model-stages">
-            <li data-stage="read">Read and align both images</li>
-            <li data-stage="detect">Detect changes</li>
-            <li data-stage="classify">Measure and classify changes</li>
-            <li data-stage="report">Generate the explanation</li>
-            <li data-stage="render">Prepare result images</li>
-          </ol>
-          <p id="modelProgressText" role="status" aria-live="polite">Starting analysis…</p>
-          <progress id="modelStageProgress" aria-label="Current stage progress"></progress>
-          <p class="threshold-help">Each stage takes a different amount of time. Tile progress is shown during detection.</p>
-        </div>
-      </section>
     </form>
   </div>
 
 </main>
 </div>
+<dialog id="analysisInfoDialog" class="info-dialog" aria-labelledby="analysisInfoTitle">
+  <div class="info-dialog-head"><h2 id="analysisInfoTitle">What this analysis does</h2><button class="dialog-close" type="button" data-close-dialog="analysisInfoDialog" aria-label="Close analysis details">×</button></div>
+  <div class="info-dialog-body">
+          <ol class="analysis-explainer">
+            <li>Compare radar signals at the two dates inside your selected area.</li>
+            <li>Highlight possible changes and measure how much of the area is flagged.</li>
+            <li>Suggest explanations to investigate in the Results report.</li>
+          </ol>
+          <p id="analysisResolution" class="threshold-intro">Load a pair to see the size of each area the model compares.</p>
+          <p class="threshold-help">A radar change is a clue. It does not confirm what happened on the ground.</p>
+          <section class="analysis-details" aria-labelledby="resolutionTitle">
+            <h3 id="resolutionTitle">Selection, resolution &amp; map details</h3>
+            <div class="tiles">
+              <div class="tile"><b id="nativeSpacing">—</b><span>Image pixel size</span></div>
+              <div class="tile"><b id="modelSpacing">—</b><span>Analysis cell size</span></div>
+            </div>
+            <p id="gridExplanation" class="threshold-help"></p>
+            <dl class="kv">
+              <div><dt>Selected model grid</dt><dd id="selCells">—</dd></div>
+              <div><dt>Share of shared footprint</dt><dd id="selShare">—</dd></div>
+              <div><dt>T0 pixel box (x₀, y₀ → x₁, y₁)</dt><dd id="selBox">—</dd></div>
+              <div><dt>Full image grid</dt><dd id="gridSize">—</dd></div>
+              <div><dt>Map reference (CRS)</dt><dd id="crs">—</dd></div>
+            </dl>
+            <p class="threshold-help">CRS identifies the coordinate system used to align the images and measure area.</p>
+          </section>
+  </div>
+</dialog>
+<dialog id="frequencyDialog" class="info-dialog" aria-labelledby="frequencyTitle">
+  <div class="info-dialog-head"><h2 id="frequencyTitle">About Frequency A</h2><button class="dialog-close" type="button" data-close-dialog="frequencyDialog" aria-label="Close frequency explanation">×</button></div>
+  <div class="info-dialog-body">
+    <p id="frequencyExplanation"></p>
+    <p>GCOV files organize radar measurements into groups named <code>frequencyA</code> and, for some acquisitions, <code>frequencyB</code>.</p>
+    <p>This analysis compares the same frequency group at both dates, using HH and HV radar measurements. The group is determined by the loaded model.</p>
+    <a href="https://asfopensarlab.github.io/NISAR_Cookbook/gcov-intro/" target="_blank" rel="noopener">Learn about GCOV data groups ↗</a>
+  </div>
+</dialog>
+<section id="analysisPage" class="analysis-page" hidden aria-labelledby="analysisTitle">
+  <main class="analysis-shell">
+    <div class="analysis-intro">
+      <span class="tag" id="analysisBadge">Analysis in progress</span>
+      <h1 id="analysisTitle" tabindex="-1">Looking for changes in your area</h1>
+      <p id="analysisSelection">We are comparing the same area at both dates.</p>
+    </div>
+    <section id="modelProgress" class="card model-progress" aria-labelledby="modelProgressTitle" aria-busy="false">
+      <div class="card-head"><h2 id="modelProgressTitle">Analyzing your area</h2><span id="modelElapsed" class="pill">0s</span></div>
+      <div class="card-body">
+        <ol class="model-stages">
+          <li data-stage="read">Read and align both images</li>
+          <li data-stage="detect">Detect changes</li>
+          <li data-stage="classify">Measure and classify changes</li>
+          <li data-stage="report">Generate the explanation</li>
+          <li data-stage="render">Prepare result images</li>
+        </ol>
+        <p id="modelProgressText" role="status" aria-live="polite">Starting analysis…</p>
+        <progress id="modelStageProgress" aria-label="Current stage progress"></progress>
+        <p class="threshold-help">The percentage counts image tiles checked during detection. Other stages show an activity indicator.</p>
+      </div>
+    </section>
+    <p class="analysis-footnote" id="analysisFootnote">Results will open automatically. You can reload this tab and reconnect to the running analysis.</p>
+    <button id="analysisBack" class="btn" type="button" hidden>Back to area selection</button>
+  </main>
+</section>
 <section id="results" class="results-v2" hidden aria-label="Change detection results">
   <div class="results-shell">
     <div class="results-crumb">Projects / Analysis / Results</div>
@@ -192,18 +230,20 @@
       <div class="results-map-card">
         <canvas id="resultMap" role="img" aria-label="Detector change overlay"></canvas>
         <div id="resultMapStatus" class="results-map-status" role="status">Loading result image…</div>
-        <div class="results-map-toolbar" role="group" aria-label="Result image">
-          <button type="button" data-result-mode="change" aria-pressed="true">Change overlay</button>
-          <button type="button" data-result-mode="t0" aria-pressed="false">T0</button>
-          <button type="button" data-result-mode="t1" aria-pressed="false">T1</button>
+        <div class="results-map-toolbar">
+          <div role="group" aria-label="Result date">
+            <button type="button" data-result-mode="t0" aria-pressed="true">T0 · Before</button>
+            <button type="button" data-result-mode="t1" aria-pressed="false">T1 · After</button>
+          </div>
+          <button id="resultShowChange" class="results-mask-toggle" type="button" role="switch" aria-checked="true" disabled><span class="results-mask-swatch" aria-hidden="true"></span>Show change<span class="results-mask-track" aria-hidden="true"></span></button>
+          <button id="resultGrayscale" class="results-mask-toggle" type="button" role="switch" aria-checked="false" disabled>HH grayscale<span class="results-mask-track" aria-hidden="true"></span></button>
         </div>
         <div class="results-zoom" role="group" aria-label="Map zoom">
           <button id="resultZoomIn" type="button" aria-label="Zoom in">+</button>
           <button id="resultZoomOut" type="button" aria-label="Zoom out">−</button>
-          <button id="resultZoomReset" type="button" aria-label="Fit image">⊙</button>
         </div>
-        <span class="results-map-label">DETECTOR OVERLAY</span>
-        <div class="results-map-legend"><span><i></i>Detector-flagged change</span><span><i class="baseline"></i>Blue intensity = |ΔHH|</span><span><i class="unmarked"></i>Unmarked ≠ confirmed stable</span></div>
+        <span class="results-map-label" id="resultMapLabel">T0 · BEFORE · CHANGE SHOWN</span>
+        <div class="results-map-legend" id="resultMaskLegend"><span><i></i>Detector-flagged change</span><span><i class="baseline"></i>Blue intensity = |ΔHH|</span><span><i class="unmarked"></i>Unmarked ≠ confirmed stable</span></div>
         <div class="results-map-foot"><button id="resultViewerLink" type="button" disabled>Open change viewer ↗</button><span id="resultMapScale"></span></div>
       </div>
       <div class="results-sidebar">

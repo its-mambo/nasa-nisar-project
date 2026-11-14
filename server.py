@@ -164,11 +164,11 @@ def create_app(demo, root: Path, names):
         return Response(trace.pngs[index], media_type="image/png")
 
     @app.get("/preview-tile.png")
-    def preview_tile(v: str = "", mode: str = "", step: str = "", col: str = "", row: str = ""):
+    def preview_tile(v: str = "", mode: str = "", step: str = "", col: str = "", row: str = "", date: str = "t0"):
         def render():
             if demo.info is None or v != str(demo.info["revision"]):
                 return error(410, "This preview is no longer available")
-            tile = demo.preview_tile(mode, int(step), int(col), int(row))
+            tile = demo.preview_tile(mode, int(step), int(col), int(row), date=date)
             with BytesIO() as output:
                 tile.save(output, format="PNG", compress_level=1)
                 return Response(output.getvalue(), media_type="image/png")
@@ -177,7 +177,7 @@ def create_app(demo, root: Path, names):
     @app.get("/{filename}.png")
     def png(filename: str, v: str = ""):
         name = filename + ".png"
-        if name not in image_names and name not in {"preview.png", "preview_hh.png"}:
+        if name not in image_names and name not in {"preview.png", "preview_hh.png", "preview_t1.png", "preview_t1_hh.png"}:
             return error(404, "Image not found")
         with demo.lock:
             if name in image_names and (demo.result_revision is None or v != str(demo.result_revision)):

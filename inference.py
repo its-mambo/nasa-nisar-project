@@ -23,7 +23,7 @@ from dual_model import (QwenModel, SarModel, attach_adapter, convert_weights,
 
 ROOT = Path(__file__).resolve().parent
 NAMES = ("t0.png", "t1.png", "change.png",
-         "t0_hh.png", "t1_hh.png", "change_hh.png", "overlay.png")
+         "t0_hh.png", "t1_hh.png", "change_hh.png", "overlay.png", "change_t1.png", "change_t1_hh.png")
 PREVIEW_TILE = 512
 
 
@@ -48,6 +48,26 @@ def limits_for(z,v,default):
     # Downweight very dark strips that can wash out the rest of the swath.
     limits = np.percentile(z[:,v], [10,98], axis=1).T
     return np.where((limits[:,1]>limits[:,0])[:,None], limits, default)
+
+
+def aligned_power(grid, box, shift, step):
+    """Sample another date on the T0 pixel grid, keeping uncovered samples empty."""
+    x, y, right, bottom = box
+    dc, dr = shift
+    height, width = math.ceil((bottom-y)/step), math.ceil((right-x)/step)
+    power = np.zeros((2, height, width), np.float32)
+    valid = np.zeros((height, width), bool)
+    # Choose sample indices on this window's existing lattice, not a new origin
+    # at the overlap boundary (which would shift subsampled T1 previews).
+    c0, r0 = max(0, math.ceil((-dc-x)/step)), max(0, math.ceil((-dr-y)/step))
+    c1 = min(width, math.ceil((grid.width-dc-x)/step))
+    r1 = min(height, math.ceil((grid.height-dr-y)/step))
+    if c0 < c1 and r0 < r1:
+        sampled, usable = grid.power(x+c0*step+dc, y+r0*step+dr,
+            min(right+dc, grid.width), min(bottom+dr, grid.height), step)
+        power[:,r0:r1,c0:c1] = sampled
+        valid[r0:r1,c0:c1] = usable
+    return power, valid
 
 
 def medians(z,valid):
@@ -158,6 +178,10 @@ class Demo:
             preview = tone(overview,valid,limits,soft_color=True)
             preview.save(self.dir/"preview.png")
             tone(overview,valid,limits,grayscale=True).save(self.dir/"preview_hh.png")
+            later, later_valid = aligned_power(b, (0,0,a.width,a.height), shift, stride)
+            later = db(later)
+            tone(later,later_valid,limits,soft_color=True).save(self.dir/"preview_t1.png")
+            tone(later,later_valid,limits,grayscale=True).save(self.dir/"preview_t1_hh.png")
             step = max(1,math.ceil(max(common[2]-common[0],common[3]-common[1])/500))
             p0,v0 = a.power(*common,step=step)
             p1,v1 = b.power(*move(common,shift),step=step)
@@ -169,6 +193,9 @@ class Demo:
                              preview_width=preview.width,preview_height=preview.height,
                              preview_url=f"/preview.png?v={self.counter}",
                              preview_hh_url=f"/preview_hh.png?v={self.counter}",
+                             preview_t1_url=f"/preview_t1.png?v={self.counter}",
+                             preview_t1_hh_url=f"/preview_t1_hh.png?v={self.counter}",
+                             t1_shift=shift,
                              overlap=common, epsg=a.epsg,
                              native_spacing_m=[a.dx,a.dy],model_spacing_m=self.spacing,frequency=self.frequency,
                              acquisitions={"t0":m0,"t1":m1}, warnings=dates_note(m0,m1),
@@ -180,12 +207,12 @@ class Demo:
                                   median_t1_hh_hv_db=medians(db(p1),valid)))
         return self.info
 
-    def preview_tile(self, mode, step, col, row):
+    def preview_tile(self, mode, step, col, row, date="t0"):
         import h5py
         from gcov import Grid, db
 
         info = self.info
-        if (mode not in ("rg", "hh") or step < 1 or step > info["stride"]
+        if (date not in ("t0", "t1") or mode not in ("rg", "hh") or step < 1 or step > info["stride"]
                 or step & (step - 1) or col < 0 or row < 0):
             raise ValueError("Invalid preview tile.")
         span = PREVIEW_TILE * step
@@ -193,9 +220,10 @@ class Demo:
         width, height = info["width"], info["height"]
         if x >= width or y >= height:
             raise ValueError("Preview tile is outside the grid.")
-        with h5py.File(self.path("t0"), "r") as product:
+        with h5py.File(self.path(date), "r") as product:
             grid = Grid.read(product, self.frequency)
-            power, valid = grid.power(x, y, min(x + span, width), min(y + span, height), step)
+            box = (x, y, min(x + span, width), min(y + span, height))
+            power, valid = aligned_power(grid, box, info["t1_shift"], step) if date == "t1" else grid.power(*box, step)
         return tone(db(power), valid, info["display_ranges_db"], grayscale=mode == "hh", soft_color=mode == "rg")
 
     def infer(self, box, revision, threshold=None, progress=None):
@@ -319,12 +347,18 @@ class Demo:
         save_image("t0.png",t0)
         save_image("change.png",Image.alpha_composite(t0,overlay))
         del t0
-        save_image("t1.png",tone(a1,v1,display))
+        t1 = tone(a1,v1,display)
+        save_image("t1.png",t1)
+        save_image("change_t1.png",Image.alpha_composite(t1,overlay))
+        del t1
         t0_hh = tone(a0,v0,display,grayscale=True)
         save_image("t0_hh.png",t0_hh)
         save_image("change_hh.png",Image.alpha_composite(t0_hh,overlay))
-        del t0_hh, overlay
-        save_image("t1_hh.png",tone(a1,v1,display,grayscale=True))
+        del t0_hh
+        t1_hh = tone(a1,v1,display,grayscale=True)
+        save_image("t1_hh.png",t1_hh)
+        save_image("change_t1_hh.png",Image.alpha_composite(t1_hh,overlay))
+        del t1_hh, overlay
         self.counter += 1
         self.result_revision = self.counter
         self.decoder_trace = trace if trace is not None and trace.attempts else None

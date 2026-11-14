@@ -2,7 +2,9 @@
 const $ = id => document.getElementById(id);
 const preview = $("preview");
 const fields = ["left","top","right","bottom"].map($);
-let state, photo, start, pointer, busy = false, mode = "rg";
+let state, photo, start, pointer, busy = false, mode = "rg", previewDate = "t0";
+let requestedMode = "rg", requestedDate = "t0", previewRequest = 0;
+const previews = new Map();
 const tiles = new Map();
 let inFlight = 0;
 const view = new RasterViewport(preview, paint);
@@ -93,8 +95,10 @@ function updateSelection() {
   $("selArea").textContent = `${(w*h*dx*dy/1e6).toFixed(2)} km²`;
   $("selShare").textContent = `${(100*w*h/((OX-ox)*(OY-oy))).toFixed(1)} %`;
   $("selBox").textContent = `${x0}, ${y0} → ${x1}, ${y1}`;
-  $("runBtn").disabled = busy || !inside;
-  $("runNote").textContent = inside ? "Reads native pixels from both dates on the local server."
+  const validThreshold = $("thresholdValue").validity.valid;
+  $("runBtn").disabled = busy || !inside || !validThreshold;
+  $("runNote").textContent = !validThreshold ? "Enter a threshold from 0.01 to 0.99."
+    : inside ? "Ready to compare this area at both dates."
                                     : "Selection must stay inside the dashed common footprint.";
 }
 
@@ -139,7 +143,7 @@ function paintTiles(ctx) {
   const needed = [];
   for (let row=Math.floor(y/span); row<Math.ceil(Y/span); row++) {
     for (let col=Math.floor(x/span); col<Math.ceil(X/span); col++) {
-      const url = `/preview-tile.png?v=${state.revision}&mode=${mode}&step=${step}&col=${col}&row=${row}`;
+      const url = `/preview-tile.png?v=${state.revision}&date=${previewDate}&mode=${mode}&step=${step}&col=${col}&row=${row}`;
       const tile = tiles.get(url);
       if (tile) {
         tiles.delete(url); tiles.set(url,tile);
@@ -213,33 +217,50 @@ for (const b of document.querySelectorAll("[data-method]")) {
   });
 }
 
-async function loadPreview(data,mode) {
-  const img = new Image();
-  img.src = mode === "hh" ? (data.preview_hh_url || data.preview_url) : data.preview_url;
-  await img.decode();
-  return img;
+async function loadPreview(data,mode,date="t0") {
+  const url = date === "t1" ? (mode === "hh" ? data.preview_t1_hh_url : data.preview_t1_url)
+    : (mode === "hh" ? data.preview_hh_url : data.preview_url);
+  if (!url) throw new Error("Reload the pair to prepare previews for both dates.");
+  if (!previews.has(url)) {
+    const img = new Image();
+    img.src = url;
+    previews.set(url,img.decode().then(() => img).catch(err => { previews.delete(url); throw err; }));
+  }
+  return previews.get(url);
 }
 function showMode(m) {
   for (const b of document.querySelectorAll("[data-mode]")) b.setAttribute("aria-pressed",String(b.dataset.mode === m));
   $("legendRamp").innerHTML = m === "hh" ? '<span class="sw sw-hh"></span>HH backscatter (dB)'
                                          : '<span class="sw sw-rg"></span>HH red · HV green';
 }
-let requestedMode = "rg";
-for (const b of document.querySelectorAll("[data-mode]")) {
-  b.addEventListener("click",async () => {
-    if (!state || b.dataset.mode === requestedMode) return;
-    const pair = state, wanted = requestedMode = b.dataset.mode;
-    showMode(wanted);
-    try {
-      const img = await loadPreview(pair,wanted);
-      if (state !== pair || requestedMode !== wanted) return;
-      photo = img; mode = wanted;
-      draw();
-    } catch (err) {
-      if (state === pair) status("Could not switch preview: "+err.message);
-    }
-  });
+function showPreviewDate() {
+  for (const b of document.querySelectorAll("[data-date]")) b.setAttribute("aria-pressed",String(b.dataset.date === previewDate));
+  const label = previewDate === "t0" ? "Before · T0" : "After · T1";
+  const stamp = state?.acquisitions?.[previewDate]?.zeroDopplerStartTime;
+  $("previewDate").textContent = label + (stamp ? ` · ${when(stamp)}` : "");
+  preview.setAttribute("aria-label",`${label} radar preview · ${mode === "hh" ? "HH grayscale" : "HH/HV colour"} · selection on the shared T0 grid`);
 }
+async function switchPreview(date,m) {
+  if (!state || (date === previewDate && m === mode && requestedDate === date && requestedMode === m)) return;
+  const pair = state, request = ++previewRequest;
+  requestedDate = date; requestedMode = m;
+  $("previewStatus").hidden = false;
+  $("previewStatus").textContent = `Loading ${date.toUpperCase()} preview…`;
+  try {
+    const img = await loadPreview(pair,m,date);
+    if (state !== pair || request !== previewRequest) return;
+    photo = img; mode = m; previewDate = date;
+    showMode(mode); showPreviewDate();
+    $("previewStatus").hidden = true;
+    draw(); // Preserve the viewport and the selection when changing dates or tones.
+  } catch (err) {
+    if (state !== pair || request !== previewRequest) return;
+    requestedDate = previewDate; requestedMode = mode;
+    $("previewStatus").textContent = "Could not switch preview: "+err.message;
+  }
+}
+for (const b of document.querySelectorAll("[data-mode]")) b.addEventListener("click",() => switchPreview(requestedDate,b.dataset.mode));
+for (const b of document.querySelectorAll("[data-date]")) b.addEventListener("click",() => switchPreview(b.dataset.date,requestedMode));
 
 function when(t) {
   return typeof t === "string" ? t.slice(0,16).replace("T"," ") + " UTC" : "Time not in metadata";
@@ -264,18 +285,30 @@ function showPairDetails(p) {
   const [ox,oy,OX,OY] = p.overlap;
   const [dx,dy] = p.native_spacing_m.map(Math.abs);
   $("crsTag").textContent = "EPSG:"+p.epsg; $("crsTag").hidden = false;
+  const frequency = document.createElement("button");
+  frequency.type = "button"; frequency.className = "frequency-info-button";
+  frequency.textContent = `Frequency ${p.frequency} ⓘ`;
+  frequency.setAttribute("aria-label", `About Frequency ${p.frequency}`);
+  frequency.setAttribute("aria-haspopup", "dialog");
+  frequency.addEventListener("click", () => $("frequencyDialog").showModal());
+  $("frequencyTitle").textContent = `About Frequency ${p.frequency}`;
+  $("frequencyExplanation").textContent = `Frequency ${p.frequency} identifies the set of radar measurements inside your GCOV file that this model uses for change detection.`;
   $("chips").replaceChildren(
     chip("T0",when(m0.zeroDopplerStartTime)), chip("T1",when(m1.zeroDopplerStartTime)),
-    chip("Frequency",p.frequency), chip("Grid",`${fmt(p.width)} × ${fmt(p.height)} px`));
+    frequency, chip("Grid",`${fmt(p.width)} × ${fmt(p.height)} px`));
   $("t0Date").textContent = when(m0.zeroDopplerStartTime);
   $("t0Meta").textContent = orbitText(m0);
   $("t1Date").textContent = when(m1.zeroDopplerStartTime);
   $("t1Meta").textContent = orbitText(m1);
   $("overlapSize").textContent = `${((OX-ox)*(OY-oy)*dx*dy/1e6).toFixed(1)} km²`;
   $("overlapMeta").textContent = `${fmt(OX-ox)} × ${fmt(OY-oy)} native px · x ${ox}–${OX}, y ${oy}–${OY}`;
-  $("freqPill").textContent = "Frequency "+p.frequency;
+  $("freqPill").textContent = "Frequency "+p.frequency+" ⓘ";
   $("nativeSpacing").textContent = `${dx} × ${dy} m`;
   $("modelSpacing").textContent = `${p.model_spacing_m} m`;
+  $("analysisResolution").textContent = `The model compares ${p.model_spacing_m} × ${p.model_spacing_m} m cells. Use the threshold above to decide which possible changes are flagged.`;
+  $("gridExplanation").textContent = dx === p.model_spacing_m && dy === p.model_spacing_m
+    ? "Each analysis cell matches one image pixel. Both dates are compared on the same map grid."
+    : `Image pixels are averaged into ${p.model_spacing_m} × ${p.model_spacing_m} m analysis cells so both dates match the model's training resolution.`;
   $("gridSize").textContent = `${fmt(p.width)} × ${fmt(p.height)} px`;
   $("crs").textContent = "EPSG:"+p.epsg;
   const list = $("warnings");
@@ -298,29 +331,54 @@ function showUpload(open) {
   $("pickLayout").classList.toggle("loading-pair", open);
   $("pickTitle").textContent = open ? "Load GCOV images" : "Pick a change area";
   setStep(open ? 1 : 2);
-  if (!busy) status(open ? "Choose two L-SAR GCOV .h5 files." : "Draw a selection on T0.");
+  if (!busy) status(open ? "Choose two L-SAR GCOV .h5 files." : "Compare Before and After, then draw an area covered by both dates.");
 }
 $("newPair").addEventListener("click",() => showUpload(true));
 $("cancelUpload").addEventListener("click",() => showUpload(false));
 $("loadStep").addEventListener("click",() => showUpload(true));
 $("areaStep").addEventListener("click",() => { if (state) showUpload(false); });
+$("analysisInfoBtn").addEventListener("click",() => $("analysisInfoDialog").showModal());
+$("freqPill").addEventListener("click",() => $("frequencyDialog").showModal());
+for (const button of document.querySelectorAll("[data-close-dialog]")) {
+  button.addEventListener("click",() => $(button.dataset.closeDialog).close());
+}
+for (const id of ["analysisInfoDialog","frequencyDialog"]) {
+  $(id).addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+}
 
-function updateThreshold() {
+function updateThreshold(fromNumber=false) {
+  if (fromNumber) {
+    const valid = $("thresholdValue").validity.valid;
+    $("thresholdError").hidden = valid;
+    $("thresholdValue").setAttribute("aria-invalid", String(!valid));
+    if (!valid) { updateSelection(); return; }
+    $("threshold").value = $("thresholdValue").value;
+  } else {
+    $("thresholdValue").value = $("threshold").valueAsNumber.toFixed(2);
+    $("thresholdError").hidden = true;
+    $("thresholdValue").setAttribute("aria-invalid", "false");
+  }
   const value = $("threshold").valueAsNumber;
-  $("thresholdValue").value = value.toFixed(2);
   const hint = value < .35 ? "More sensitive · includes lower-scoring changes."
     : value < .7 ? "Balanced · keeps moderate and higher-scoring changes."
     : "More selective · keeps only higher-scoring changes.";
   $("thresholdHint").textContent = hint;
   $("threshold").setAttribute("aria-valuetext", `${value.toFixed(2)}. ${hint}`);
+  updateSelection();
 }
-$("threshold").addEventListener("input", updateThreshold);
+$("threshold").addEventListener("input", () => updateThreshold());
+$("thresholdValue").addEventListener("input", () => updateThreshold(true));
+$("thresholdValue").addEventListener("change", () => {
+  if ($("thresholdValue").validity.valid) $("thresholdValue").value = $("threshold").valueAsNumber.toFixed(2);
+});
 updateThreshold();
 
 async function showPair(data) {
-    requestedMode = "rg"; showMode("rg");
+    ++previewRequest; previews.clear();
+    requestedMode = "rg"; requestedDate = "t0"; showMode("rg");
     const img = await loadPreview(data,"rg");
-    state = data; photo = img; mode = "rg"; tiles.clear();
+    state = data; photo = img; mode = "rg"; previewDate = "t0"; tiles.clear();
+    showPreviewDate(); $("previewStatus").hidden = true;
     fields.forEach(f => { f.value = ""; });
     showPairDetails(state);
     $("threshold").value = String(data.threshold ?? .1);
@@ -330,7 +388,7 @@ async function showPair(data) {
     view.setRaster(state.width,state.height);
     setStep(2);
     updateSelection();
-    status("Draw a selection on T0.");
+    status("Compare Before and After, then draw an area covered by both dates.");
 }
 
 setStep(1);
@@ -340,13 +398,8 @@ updateSelection();
   try {
     const runId = savedRun();
     if (runId) {
-      showUpload(false);
-      $("pickPage").classList.add("resuming-run");
-      $("pickTitle").textContent = "Analysis in progress";
-      $("chips").textContent = "Your model run is continuing on the server.";
       try { await followRun(runId); }
       catch (err) { status(err.message); }
-      finally { $("pickPage").classList.remove("resuming-run"); }
     }
     const r = await fetch("/pair");
     if (r.ok) {
@@ -367,7 +420,6 @@ $("upload").addEventListener("submit",async e => {
     return;
   }
   state = null; photo = null; $("results").hidden = $("pairCard").hidden = $("mapUi").hidden = true;
-  $("modelProgress").hidden = true;
   $("cancelUpload").hidden = true;
   view.setRaster(0,0);
   setStep(1);
@@ -381,7 +433,7 @@ $("upload").addEventListener("submit",async e => {
       await uploadFile(name,files[i],received => showProgress(sent+received,total));
       sent += files[i].size;
     }
-    status("Both files uploaded. Preparing the T0 preview…");
+    status("Both files uploaded. Preparing Before and After previews…");
     await showPair(await post("/prepare"));
   } catch (err) { status(err.message); }
   finally { setBusy(false); $("uploadProgress").hidden = true; }
@@ -394,6 +446,35 @@ function savedRun(value) {
     return sessionStorage.getItem("nisar-active-run");
   } catch { return null; }
 }
+
+function showAnalysisPage() {
+  $("pickPage").hidden = $("results").hidden = true;
+  $("analysisPage").hidden = false;
+  $("modelProgress").setAttribute("aria-busy", "true");
+  $("resultsTab").removeAttribute("aria-current");
+  $("pickTab").setAttribute("aria-current", "page");
+  $("analysisTitle").textContent = "Looking for changes in your area";
+  $("analysisBadge").textContent = "Analysis in progress";
+  $("analysisBack").hidden = true;
+  $("analysisFootnote").textContent = "Results will open automatically. You can reload this tab and reconnect to the running analysis.";
+  const box = state && currentBox();
+  $("analysisSelection").textContent = box
+    ? `${$("selArea").textContent} selected · Before (T0) compared with After (T1) · threshold ${$("threshold").valueAsNumber.toFixed(2)}`
+    : "Reconnecting to the analysis already running on the server.";
+  window.scrollTo(0,0);
+  $("analysisTitle").focus({preventScroll:true});
+}
+function showAnalysisError(err) {
+  $("analysisTitle").textContent = "Your analysis could not finish";
+  $("analysisBadge").textContent = "Analysis interrupted";
+  $("modelProgressTitle").textContent = "Analysis interrupted";
+  $("modelProgressText").textContent = err.message;
+  $("modelStageProgress").hidden = true;
+  $("modelProgress").setAttribute("aria-busy", "false");
+  $("analysisBack").hidden = false;
+  $("analysisFootnote").textContent = "Return to your area selection to review the inputs and try again.";
+}
+$("analysisBack").addEventListener("click",() => showPickTab());
 
 function updateModelProgress(job) {
   const stages = ["read", "detect", "classify", "report", "render"];
@@ -423,9 +504,10 @@ function updateModelProgress(job) {
 
 async function followRun(runId) {
   savedRun(runId);
-  $("modelProgress").hidden = false;
+  showAnalysisPage();
+  $("modelProgressTitle").textContent = "Analyzing your area";
+  $("modelStageProgress").hidden = false;
   $("modelProgress").setAttribute("aria-busy", "true");
-  $("modelProgress").scrollIntoView({block:"nearest", behavior:"smooth"});
   let started = Date.now();
   const tick = () => {
     const seconds = Math.floor((Date.now() - started) / 1000);
@@ -459,9 +541,7 @@ async function followRun(runId) {
       await new Promise(resolve => setTimeout(resolve, 750));
     }
   } catch (err) {
-    $("modelProgressTitle").textContent = "Analysis interrupted";
-    $("modelProgressText").textContent = err.message;
-    $("modelStageProgress").hidden = true;
+    showAnalysisError(err);
     throw err;
   } finally {
     clearInterval(timer);
@@ -475,9 +555,9 @@ $("infer").addEventListener("submit",async e => {
   e.preventDefault();
   if (busy || !state || !currentBox()) return;
   setBusy(true);
+  showAnalysisPage();
   $("modelProgressTitle").textContent = "Analyzing your area";
   $("modelStageProgress").hidden = false;
-  $("modelProgress").hidden = false;
   updateModelProgress({stage:"read", message:"Starting analysis…"});
   try {
     const job = await post("/infer",JSON.stringify({box:fields.map(f=>f.valueAsNumber),revision:state.revision,
@@ -485,9 +565,7 @@ $("infer").addEventListener("submit",async e => {
     await followRun(job.run_id);
   } catch (err) {
     status(err.message);
-    $("modelProgressTitle").textContent = "Analysis interrupted";
-    $("modelProgressText").textContent = err.message;
-    $("modelStageProgress").hidden = true;
+    showAnalysisError(err);
   }
   finally { $("runBtn").textContent = "Run model on selection →"; setBusy(false); }
 });

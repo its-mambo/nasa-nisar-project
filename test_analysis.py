@@ -17,7 +17,7 @@ from PIL import Image
 import torch
 
 from change_model import infer_scene
-from inference import Demo, NAMES, ROOT
+from inference import Demo, NAMES, ROOT, aligned_power
 from server import create_app
 
 
@@ -73,12 +73,11 @@ class FakeQwen:
         return "Test explanation based on measured backscatter."
 
 
-def fixture_demo(directory):
+def fixture_demo(directory, size=128):
     options = SimpleNamespace(threshold=.1, max_roi_pixels=1_000_000,
         batch_size=2, overlap=0, decoder_overview_size=256, serial_vision=True,
         inspect_decoder_tensors=False, max_delta_db=8, max_upload_gib=1)
     demo = Demo(directory, options, FakeSar(), FakeQwen())
-    size = 128
     yy, xx = np.mgrid[:size, :size]
     for date, scale, stamp in (("t0", 1., "2026-06-21T00:00:00Z"),
                                 ("t1", 2., "2026-09-13T00:00:00Z")):
@@ -97,6 +96,47 @@ def fixture_demo(directory):
 
 
 class InferenceOutputTests(unittest.TestCase):
+    def test_later_preview_is_aligned_and_tiles_match(self):
+        with tempfile.TemporaryDirectory() as directory:
+            demo = fixture_demo(directory)
+            before = np.asarray(Image.open(Path(directory)/"preview.png"))
+            after = np.asarray(Image.open(Path(directory)/"preview_t1.png"))
+            self.assertEqual(before.shape,after.shape)
+            self.assertFalse(np.array_equal(before,after))
+            # A nonzero product offset must not move the selection grid.
+            with h5py.File(Path(directory)/"t1.h5","r+") as product:
+                grid = product["/science/LSAR/GCOV/grids/frequencyA"]
+                grid["xCoordinates"][:] += 30
+                grid["yCoordinates"][:] += 20
+            demo.prepare()
+            self.assertEqual(demo.info["t1_shift"],(-3,2))
+            for mode, filename in (("rg","preview_t1.png"),("hh","preview_t1_hh.png")):
+                later = np.asarray(Image.open(Path(directory)/filename))
+                np.testing.assert_array_equal(later,np.asarray(demo.preview_tile(mode,1,0,0,date="t1")))
+                self.assertFalse(later[:,:3,3].any())
+                self.assertFalse(later[-2:,:,3].any())
+                self.assertTrue((later[:-2,3:,3] == 255).all())
+            with self.assertRaises(ValueError):
+                demo.preview_tile("rg",1,0,0,date="other")
+
+    def test_shifted_coarse_preview_uses_the_same_sampling_lattice(self):
+        class SampleGrid:
+            width, height = 11, 9
+            def power(self,x,y,right,bottom,step):
+                yy,xx = np.mgrid[y:bottom:step,x:right:step]
+                data = (100*yy+xx+1).astype(np.float32)
+                return np.stack([data,data]), np.ones(data.shape,bool)
+        # Offset not divisible by sample spacing, including an interior tile origin.
+        for shift in ((-3,2),(2,-3),(-50,0),(0,50)):
+            for box in ((0,0,16,12),(5,1,13,10)):
+                power,valid = aligned_power(SampleGrid(),box,shift,4)
+                for row,y in enumerate(range(box[1],box[3],4)):
+                    for col,x in enumerate(range(box[0],box[2],4)):
+                        bx,by = x+shift[0], y+shift[1]
+                        inside = 0 <= bx < 11 and 0 <= by < 9
+                        self.assertEqual(bool(valid[row,col]),inside)
+                        self.assertEqual(power[0,row,col],100*by+bx+1 if inside else 0)
+
     def test_per_run_threshold_and_independent_overlay(self):
         with tempfile.TemporaryDirectory() as directory:
             demo = fixture_demo(directory)
@@ -111,7 +151,8 @@ class InferenceOutputTests(unittest.TestCase):
             overlay = Image.open(Path(directory) / "overlay.png").convert("RGBA")
             self.assertTrue(np.any(np.asarray(overlay)[:,:,3] > 0))
             # Both precomposited downloads equal the independent overlay on their base.
-            for base, combined in (("t0", "change"), ("t0_hh", "change_hh")):
+            for base, combined in (("t0", "change"), ("t1", "change_t1"),
+                                   ("t0_hh", "change_hh"), ("t1_hh", "change_t1_hh")):
                 expected = Image.alpha_composite(Image.open(Path(directory)/f"{base}.png"), overlay)
                 np.testing.assert_array_equal(np.asarray(expected), np.asarray(Image.open(Path(directory)/f"{combined}.png")))
             hh = np.asarray(Image.open(Path(directory) / "t0_hh.png"))

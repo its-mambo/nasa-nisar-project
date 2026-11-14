@@ -7,6 +7,7 @@
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
+  .visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0 !important; margin: -1px !important; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
   button, input, select { font: inherit; color: inherit; }
   h1, h2, h3, h4 { margin: 0; }
@@ -69,6 +70,8 @@
   .seg button[aria-pressed="true"] { background: var(--teal); color: #fff; }
   .map-hint { margin-left: auto; color: #c9d2db; font-size: .78rem; background: rgba(15,20,30,.65); padding: .3rem .6rem; border-radius: 6px; }
   .map-hint kbd { font: inherit; font-weight: 600; color: #fff; }
+  .preview-date { top: 3.6rem; right: .75rem; max-width: calc(100% - 65px); padding: .4rem .65rem; border-radius: 6px; background: rgba(15,20,30,.8); color: #fff; font-size: .78rem; }
+  .preview-status { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; margin: 0; padding: 2rem; text-align: center; background: #14212b88; color: #fff; pointer-events: none; }
   .zoom { top: 3.6rem; left: .75rem; flex-direction: column; gap: 0; background: var(--card); border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
   .zoom button { width: 32px; height: 32px; border: 0; background: none; cursor: pointer; font-size: 1.05rem; line-height: 1; }
   .zoom button + button { border-top: 1px solid var(--line); }
@@ -108,7 +111,7 @@
   #warnings li.ok { background: var(--teal-soft); color: var(--teal-ink); }
 
   /* Sidebar */
-  #infer { display: grid; gap: 1rem; position: sticky; top: 1rem; }
+  #infer { display: grid; gap: .75rem; position: sticky; top: 1rem; }
   .side-seg { display: grid; grid-template-columns: 1fr 1fr; width: 100%; background: var(--soft); border-color: transparent; }
   .side-seg button { padding: .42rem; }
   .callout { margin-top: .75rem; background: var(--soft); border-radius: 8px; padding: .6rem .7rem; font-size: .82rem; color: var(--muted); }
@@ -126,18 +129,39 @@
   .tile span { font-size: .75rem; color: var(--muted); }
   .pill { font-size: .72rem; font-weight: 600; color: var(--teal-ink); border: 1px solid #b9d6d7; padding: .1rem .45rem; border-radius: 99px; }
   .run { display: grid; gap: .4rem; }
-  .run .btn { padding: .8rem 1rem; font-size: 1rem; font-weight: 600; }
+  .run .btn { padding: .65rem 1rem; font-size: 1rem; font-weight: 600; }
   .run p { margin: 0; text-align: center; font-size: .78rem; color: var(--muted); }
+  .run .link { justify-self: center; margin-top: .15rem; }
+  #infer .callout { margin-top: .55rem; font-size: .78rem; padding: .5rem .6rem; }
+  #infer .kv { margin-top: .6rem; gap: .3rem; }
+  #infer .kv div { font-size: .8rem; }
+  #infer .selection-summary { grid-template-columns: 1fr 1fr; }
+  #infer .selection-summary div { display: block; }
+  #infer .selection-summary dd { margin-top: .15rem; text-align: left; }
 
-  .threshold-intro { font-size: .82rem; color: var(--muted); margin: 0 0 .8rem; }
+  .threshold-intro { font-size: .82rem; color: var(--muted); margin: 0 0 .5rem; }
   .threshold-control { display: flex; align-items: stretch; gap: 1rem; padding: .25rem .3rem; }
-  #threshold { writing-mode: vertical-lr; direction: rtl; width: 26px; height: 190px; flex: none; accent-color: var(--teal); cursor: pointer; }
+  #threshold { writing-mode: vertical-lr; direction: rtl; width: 26px; height: 130px; flex: none; accent-color: var(--teal); cursor: pointer; }
   .threshold-labels { display: flex; flex-direction: column; justify-content: space-between; padding: 8px 0; font-size: .8rem; }
   .threshold-labels b, .threshold-labels span { display: block; }
   .threshold-labels span { color: var(--muted); font-size: .75rem; margin-top: .15rem; }
   .threshold-hint { font-size: .8rem; color: var(--teal-ink); margin: .75rem 0 .35rem; }
   .threshold-help { font-size: .75rem; color: var(--muted); margin: .3rem 0 0; }
   #thresholdValue { font-variant-numeric: tabular-nums; }
+  .threshold-number { width: 72px; flex: none; padding: .3rem .35rem; border: 1px solid #b9d6d7; border-radius: 6px; color: var(--teal-ink); background: #fff; font-size: .82rem; }
+  .threshold-number[aria-invalid="true"] { border-color: #b33b2e; }
+  .threshold-error { margin: .4rem 0; color: #a12e22; font-size: .78rem; }
+  .frequency-info-button { display: inline-flex; align-items: center; gap: .25rem; border: 0; padding: 0; color: var(--teal-ink); background: transparent; cursor: help; font: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
+  .frequency-info-button.pill { padding: .1rem .45rem; border: 1px solid #b9d6d7; font-size: .72rem; }
+  .info-dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 40px); padding: 0; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--card); overflow: auto; box-shadow: 0 20px 70px #14212b40; }
+  .info-dialog::backdrop { background: #14212b80; }
+  .info-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1.1rem; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--card); }
+  .info-dialog-head h2 { font-size: 1rem; }
+  .dialog-close { flex: none; width: 32px; height: 32px; border: 0; border-radius: 6px; background: var(--soft); font-size: 22px; cursor: pointer; }
+  .info-dialog-body { padding: 1.1rem; font-size: .87rem; }
+  .info-dialog-body > p:first-child { margin-top: 0; }
+  .info-dialog-body a { color: var(--teal-ink); }
+  .info-dialog h3 { font-size: .9rem; margin: 0 0 .6rem; }
   .model-stages { padding: 0; margin: .25rem 0 1rem; list-style: none; counter-reset: stage; display: grid; gap: .65rem; }
   .model-stages li { counter-increment: stage; display: flex; align-items: center; gap: .6rem; color: var(--muted); font-size: .8rem; }
   .model-stages li::before { content: counter(stage); display: grid; place-items: center; flex: none; width: 22px; height: 22px; border: 1px solid var(--line); border-radius: 50%; font-size: .7rem; }
@@ -146,9 +170,41 @@
   .model-stages li.done::before { content: "✓"; background: var(--teal-soft); color: var(--teal); border-color: transparent; }
   #modelProgressText { color: var(--ink); font-size: .82rem; }
   #modelStageProgress { width: 100%; accent-color: var(--teal); height: 8px; }
-  .resuming-run .layout { grid-template-columns: minmax(0, 1fr); }
-  .resuming-run .main-col, .resuming-run #infer > :not(#modelProgress) { display: none; }
-  .resuming-run #infer { width: min(100%, 640px); margin: 0 auto; position: static; }
+  .analysis-explainer { padding-left: 1.25rem; margin: 0 0 .8rem; font-size: .83rem; display: grid; gap: .45rem; }
+  .analysis-details { border-top: 1px solid var(--line); padding-top: .65rem; margin-top: .8rem; }
+  .analysis-details .tiles { margin-top: .65rem; }
+  main.analysis-shell { max-width: 680px; padding: clamp(16px, 4vh, 36px) 24px 24px; }
+  .analysis-intro h1 { margin: .75rem 0 .5rem; font-size: clamp(23px, 3vw, 30px); line-height: 1.2; }
+  .analysis-intro p, .analysis-footnote { color: var(--muted); font-size: .86rem; }
+  .analysis-intro p { margin: 0 0 1.25rem; }
+  .analysis-shell .model-stages { gap: .85rem; margin: .5rem 0 1.25rem; }
+  .analysis-shell .card-head { padding: 1rem 1.25rem .5rem; }
+  .analysis-shell .card-body { padding: 0 1.25rem 1.25rem; }
+  .analysis-shell .model-stages li { font-size: .9rem; }
+  .analysis-footnote { line-height: 1.5; margin: 1rem 0; }
+  @media (min-width: 1001px) and (max-height: 850px) {
+    #pickPage > main { padding-top: .75rem; }
+    .steps { margin-bottom: .65rem; }
+    .steps li button { padding-top: .3rem; padding-bottom: .3rem; }
+    .page-head { margin-bottom: .65rem; }
+    #infer { gap: .4rem; }
+    #infer .card-head { padding-top: .65rem; padding-bottom: .4rem; }
+    #infer .card-body { padding-bottom: .4rem; }
+    #infer .side-seg button { padding-top: .3rem; padding-bottom: .3rem; }
+    #infer .run { gap: .25rem; }
+    #threshold { height: 100px; }
+    .threshold-labels { font-size: .75rem; }
+    .threshold-labels span { font-size: .72rem; }
+  }
+  @media (max-width: 1100px) {
+    .map-toolbar .map-hint { display: none; }
+  }
+  @media (max-width: 720px) {
+    .map-toolbar { gap: .35rem; }
+    .map-toolbar .seg button { font-size: .75rem; padding: .3rem .45rem; }
+    .map .zoom, .preview-date { top: 6rem; }
+    .preview-date { font-size: .7rem; }
+  }
 
   @media (max-width: 1000px) {
     .layout { grid-template-columns: 1fr; }

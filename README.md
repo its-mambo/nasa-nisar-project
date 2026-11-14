@@ -5,6 +5,16 @@ The browser UI has separate Pick and Results files (`pick.css`/`pick.js` and
 then serves the UI and analysis API with FastAPI. Run one server process: the
 loaded models and current pair are shared in memory.
 
+## Who this is for
+
+Develop the website for **environmental analysts** and **enthusiasts**. Analysts
+need precise selections, reproducible settings, measured evidence, and exports.
+Enthusiasts need approachable before/after exploration and clear explanations
+without assumed radar knowledge. Both use the same workflow: explain the task
+first, then reveal technical detail when wanted. These are product personas,
+not separate sign-in roles. [AGENTS.md](AGENTS.md) records this design context
+for future development.
+
 ## Run on the model host
 
 Use Python 3.11 or newer. Install a PyTorch build for the host from the
@@ -55,18 +65,33 @@ server. To avoid uploading, also pass `--t0 /path/to/earlier.h5` and
 `--t1 /path/to/later.h5` to the same command.
 
 The three tabs are **Pick an area**, **Change viewer**, and **Results**. The
-first tab has two steps: load the GCOV files, then select an area. Its vertical
-threshold slider applies to the next model run, starting at the server's
+first tab has two steps: load the GCOV files, then select an area.
+Before/After controls preview either date on the same map grid, preserving
+zoom, pan, and the selected area. Colour and grayscale work with either date.
+The Run button stays at the top of the compact selection sidebar. **How analysis
+works & map details** opens a dialog with the workflow explanation, selection
+measurements, image resolution, analysis cell size, and CRS. The Frequency label
+opens an explanation of the GCOV radar-data group used by the model, with a
+link to the [NISAR GCOV guide](https://asfopensarlab.github.io/NISAR_Cookbook/gcov-intro/).
+The vertical threshold slider applies to the next model run, starting at the server's
 `--threshold` value (default 0.1). Lower values include more candidate changes;
 higher values keep only higher-scoring detections. These scores are not
 calibrated probabilities or a direct measure of physical significance.
+The small numeric field accepts values from 0.01 to 0.99 in steps of 0.01 and
+stays synchronized with the slider. Invalid or empty values disable the run.
 
-Runs show the current processing stage, elapsed time, and actual processed-tile
+Runs use a dedicated progress view, with no setup sidebar beneath or beside it.
+They show the current processing stage, elapsed time, and actual processed-tile
 progress during detection. Other stages use an indeterminate progress bar.
 Reloading the same browser tab reconnects to its running analysis. The Change
 viewer has independent **Show change** and **HH grayscale** switches; the blue
 detector overlay stays blue in grayscale mode and works in T0, T1, and split
 views. Results links open this same viewer.
+The Results map also has a Before/After date selector and independent
+**Show change** and **HH grayscale** switches. Both switches keep their state
+when changing dates. The mask stays blue in grayscale, and PNG downloads use
+the selected date, grayscale setting, and mask state. The zoom controls are
+**+** and **−**.
 
 The UI starts an analysis with `POST /infer` (JSON: `box`, `revision`, optional
 `threshold`). It returns HTTP 202 with a `run_id`. Poll `GET /infer/{run_id}`

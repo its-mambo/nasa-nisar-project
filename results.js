@@ -3,7 +3,11 @@
 const resultsEl = id => document.getElementById(id);
 const resultCanvas = resultsEl("resultMap");
 let resultImage = null;
-let resultMode = "change";
+let resultOverlay = null;
+let resultMode = "t0";
+let resultShowChange = true;
+let resultGrayscale = false;
+let resultLayers = new Map();
 let resultLoadId = 0;
 let resultData = null;
 const resultViewport = new RasterViewport(resultCanvas, ctx => {
@@ -11,6 +15,9 @@ const resultViewport = new RasterViewport(resultCanvas, ctx => {
   const [x, y, right, bottom] = resultViewport.visible();
   if (right > x && bottom > y) {
     ctx.drawImage(resultImage, x, y, right - x, bottom - y, x, y, right - x, bottom - y);
+    if (resultShowChange && resultOverlay) {
+      ctx.drawImage(resultOverlay, x, y, right - x, bottom - y, x, y, right - x, bottom - y);
+    }
   }
 });
 resultViewport.enableDrag(0);
@@ -29,39 +36,54 @@ async function showResultMode(mode) {
   resultMode = mode;
   document.querySelectorAll("[data-result-mode]").forEach(button =>
     button.setAttribute("aria-pressed", String(button.dataset.resultMode === mode)));
-  const file = {change:"change.png",t0:"t0.png",t1:"t1.png"}[mode];
-  const url = resultData.images?.[file];
-  const label = {change:"Detector change overlay",t0:"T0 · earlier image",t1:"T1 · later image"}[mode];
+  const grayscale = resultGrayscale;
+  const file = `${mode}${grayscale ? "_hh" : ""}.png`;
+  const label = `${mode === "t0" ? "T0 · Before" : "T1 · After"} · ${grayscale ? "HH grayscale" : "HH/HV colour"} · ${resultShowChange ? "change shown in blue" : "change hidden"}`;
+  const id = ++resultLoadId;
+  function load(file) {
+    const url = resultData.images?.[file];
+    if (!url) return Promise.reject(new Error("Image unavailable for this result. Run a new analysis to generate its display layers."));
+    if (!resultLayers.has(url)) {
+      const img = new Image();
+      img.src = url;
+      const cache = resultLayers;
+      cache.set(url,img.decode().then(() => img).catch(err => { cache.delete(url); throw err; }));
+    }
+    return resultLayers.get(url);
+  }
+  const showMask = resultShowChange;
+  resultsEl("resultShowChange").setAttribute("aria-checked", String(showMask));
+  resultsEl("resultGrayscale").setAttribute("aria-checked", String(grayscale));
+  resultsEl("resultMaskLegend").hidden = !showMask;
+  setResultText("resultMapLabel", `${mode.toUpperCase()} · ${grayscale ? "HH GRAYSCALE" : "COLOUR"} · ${showMask ? "CHANGE SHOWN" : "CHANGE HIDDEN"}`);
   setResultText("resultMapStatus", "Loading " + label + "…");
   resultsEl("resultMapStatus").hidden = false;
-  if (!url) {
-    setResultText("resultMapStatus", "Image unavailable for this result.");
-    return;
-  }
-  const id = ++resultLoadId;
-  const img = new Image();
-  img.src = url;
+  resultsEl("resultDownload").hidden = true;
   try {
-    await img.decode();
+    const [img, overlay] = await Promise.all([load(file), showMask ? load("overlay.png") : null]);
     if (id !== resultLoadId) return;
-    resultImage = img;
+    resultImage = img; resultOverlay = overlay;
     resultCanvas.setAttribute("aria-label", label);
-    resultViewport.setRaster(img.naturalWidth, img.naturalHeight);
+    if (resultViewport.width !== img.naturalWidth || resultViewport.height !== img.naturalHeight) {
+      resultViewport.setRaster(img.naturalWidth, img.naturalHeight);
+    } else resultViewport.invalidate();
     resultsEl("resultMapStatus").hidden = true;
-    resultsEl("resultDownload").href = url;
-    resultsEl("resultDownload").download = file;
-  } catch {
-    if (id === resultLoadId) setResultText("resultMapStatus", "Could not load this result image.");
+    const changeName = mode === "t0" ? "change" : "change_t1";
+    const download = showMask ? `${changeName}${grayscale ? "_hh" : ""}.png` : file;
+    const downloadUrl = resultData.images?.[download];
+    resultsEl("resultDownload").hidden = !downloadUrl;
+    if (downloadUrl) {
+      resultsEl("resultDownload").href = downloadUrl;
+      resultsEl("resultDownload").download = download;
+    }
+  } catch (err) {
+    if (id === resultLoadId) setResultText("resultMapStatus", err.message || "Could not load this result image.");
   }
 }
 
 function resultZoom(factor) {
   if (!resultViewport.width) return;
-  if (factor === 0) {
-    resultViewport.scale = resultViewport.fitScale;
-  } else {
-    resultViewport.scale = Math.max(resultViewport.fitScale, Math.min(8, resultViewport.scale * factor));
-  }
+  resultViewport.scale = Math.max(resultViewport.fitScale, Math.min(8, resultViewport.scale * factor));
   resultViewport.x = (resultViewport.w - resultViewport.width * resultViewport.scale) / 2;
   resultViewport.y = (resultViewport.h - resultViewport.height * resultViewport.scale) / 2;
   resultViewport.clamp();
@@ -69,7 +91,18 @@ function resultZoom(factor) {
 }
 
 function renderResultsV2(data) {
+  const newResult = resultData !== data;
   resultData = data;
+  if (newResult) {
+    resultLayers = new Map();
+    resultImage = resultOverlay = null;
+    resultViewport.setRaster(0,0);
+    resultMode = "t0";
+    resultShowChange = !!data.images?.["overlay.png"];
+    resultGrayscale = false;
+  }
+  resultsEl("resultShowChange").disabled = !data.images?.["overlay.png"];
+  resultsEl("resultGrayscale").disabled = !(data.images?.["t0_hh.png"] && data.images?.["t1_hh.png"]);
   const roi = data.roi || {};
   const acq = data.acquisitions || {};
   const start = acquisitionDate(acq.t0?.zeroDopplerStartTime);
@@ -109,7 +142,7 @@ function renderResultsV2(data) {
   }
   setResultText("resultPatternNote", data.interpretation?.source === "visual" ? "AI interpretation is unvalidated. Blue is not a water map." : "Measured SAR values describe change, not its physical cause.");
   resultsEl("resultViewerLink").disabled = resultRevision() === null;
-  showResultMode("change");
+  showResultMode(resultMode);
 }
 
 // Result revision: the ?v= of the result image URLs (same source as /t0.png?v=… above).
@@ -126,9 +159,16 @@ resultsEl("resultViewerLink").addEventListener("click", () => {
 });
 
 document.querySelectorAll("[data-result-mode]").forEach(button => button.addEventListener("click", () => showResultMode(button.dataset.resultMode)));
+resultsEl("resultShowChange").addEventListener("click", () => {
+  resultShowChange = !resultShowChange;
+  showResultMode(resultMode);
+});
+resultsEl("resultGrayscale").addEventListener("click", () => {
+  resultGrayscale = !resultGrayscale;
+  showResultMode(resultMode);
+});
 resultsEl("resultZoomIn").addEventListener("click", () => resultZoom(1.5));
 resultsEl("resultZoomOut").addEventListener("click", () => resultZoom(1/1.5));
-resultsEl("resultZoomReset").addEventListener("click", () => resultZoom(0));
 resultsEl("resultOpenReport").addEventListener("click", () => resultsEl("resultReportDialog").showModal());
 resultsEl("resultCloseReport").addEventListener("click", () => resultsEl("resultReportDialog").close());
 resultsEl("resultReportDialog").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
@@ -255,6 +295,7 @@ inspector.addEventListener("toggle",async () => {
 
 
 function showResultsV2(data) {
+  resultsEl("analysisPage").hidden = true;
   resultsEl("pickTab").removeAttribute("aria-current");
   resultsEl("resultsTab").setAttribute("aria-current", "page");
   resultsEl("results").hidden = false;
@@ -280,6 +321,11 @@ function showResultsV2(data) {
   window.scrollTo(0,0);
 }
 function showPickTab() {
+  if (resultsEl("modelProgress").getAttribute("aria-busy") === "true") {
+    showAnalysisPage();
+    return;
+  }
+  resultsEl("analysisPage").hidden = true;
   resultsEl("resultsTab").removeAttribute("aria-current");
   resultsEl("pickTab").setAttribute("aria-current", "page");
   resultsEl("results").hidden = true;
