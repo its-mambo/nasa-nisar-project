@@ -100,8 +100,37 @@ tile counts. A completed job includes `result`; a failed job includes `error`.
 The server accepts one active analysis at a time and retains eight recent job
 statuses in memory. `GET /result` still returns the latest completed report.
 
+Progress includes an approximate remaining-time range once there is enough
+measured work. Tile throughput estimates the detection stage; image-write
+throughput estimates final rendering. With similar completed runs from the
+same server, the estimate can include the remaining stages. Estimates use up
+to eight recent in-memory timing profiles, adjust image-based stages for ROI
+size, and stay unavailable when there is no useful basis. They are rough
+ranges, not confidence intervals or promised completion times.
+
+Results and Change viewer share grayscale, mask visibility, date, divider,
+and normalized map focus/zoom through browser session storage, scoped to the
+result revision. EPSG labels open an explanation of the map coordinate system,
+including its UTM/polar name and why it matters for projected area and GIS use.
+
+The evidence section compares flagged and other valid cells by HH/HV channel,
+showing signed dB changes, group sizes, and differences between group medians.
+Scientific details expose usable model coverage, valid and unflagged grid
+areas, native-date medians, all nine sector flag rates, acquisition metadata,
+projected bounds, preprocessing, detector settings, and checkpoint identifier
+when available. Missing fields remain explicitly unrecorded. Whole-selection
+differences between date medians are distinguished from medians of paired
+cell changes. Areas use the projected grid; no validated accuracy or causal
+attribution is implied. See the [NISAR projection guide](https://nisar-docs.asf.alaska.edu/projections/)
+and [GCOV data guide](https://nisar-docs.asf.alaska.edu/gcov/) for product context.
+
+Download the full report and measurements as JSON or the leading three sector
+comparisons as CSV. The CSV includes both channels, sample counts, signed dB
+statistics, acquisition times, threshold, spacing, and EPSG code.
+
 Run the regression checks without loading the weight bundle:
 
 ```bash
 python -m unittest -v test_analysis
+node test_explorer.js
 ```

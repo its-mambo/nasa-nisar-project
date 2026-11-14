@@ -298,6 +298,12 @@ class Demo:
         roi_medians = [medians(a0,native_valid),medians(a1,native_valid)]
         full = self.info["full_scene_context"]
         result.update(threshold=threshold,valid_pixels=valid_count,changed_pixels=changed,
+                      analysis_settings=dict(frequency=self.frequency,channels=["HH","HV"],
+                          detector_sha256=getattr(self.sar,"detector_sha256",None),
+                          detector_tile_size_px=224,detector_overlap_px=opts.overlap,
+                          batch_size=opts.batch_size,db_clip=np.asarray(self.spec["db_clip"],dtype=float).tolist(),
+                          overlay_max_delta_db=opts.max_delta_db,
+                          preprocessing="Mean native power at model spacing, then 10 log10 to dB"),
                       spatial_context=spatial, full_scene_context=full,paired_sector_deltas=paired,
                       roi=dict(t0_pixel_box=box,t1_pixel_box=t1_box,width_px=w,height_px=h,
                                projected_bounds_wsen=bounds,epsg=self.info["epsg"],
@@ -328,7 +334,7 @@ class Demo:
                             "qwen_report":round(perf_counter()-report_started,3)}
         # Back-project the coarse binary mask by integer pixel replication, then
         # render native HH dB differences only in flagged, jointly valid pixels.
-        update("render", "Rendering the change overlay and preparing your results…")
+        update("render", "Rendering the change overlay and preparing your results…", 0, len(NAMES))
         selected = np.repeat(np.repeat(mask,fy,axis=0),fx,axis=1)[:h,:w] & native_valid
         blue = np.zeros((h,w,4),np.uint8)
         blue[:,:,:3] = (0,120,255)
@@ -338,10 +344,14 @@ class Demo:
         overlay = Image.fromarray(blue)
         del blue
         self.result_revision = None
+        images_written = 0
         def save_image(name,img):
+            nonlocal images_written
             tmp = self.dir/(name+".tmp")
             img.save(tmp,format="PNG")
             tmp.replace(self.dir/name)
+            images_written += 1
+            update("render", f"Prepared {images_written} of {len(NAMES)} result images", images_written, len(NAMES))
         save_image("overlay.png",overlay)
         t0 = tone(a0,v0,display)
         save_image("t0.png",t0)

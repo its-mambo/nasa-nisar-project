@@ -19,6 +19,39 @@ import torch
 from change_model import infer_scene
 from inference import Demo, NAMES, ROOT, aligned_power
 from server import create_app
+from progress_timing import RunTiming
+
+
+class RemainingTimeTests(unittest.TestCase):
+    def test_estimates_use_actual_stage_work_and_do_not_invent_future_times(self):
+        now = [0.]
+        timing = RunTiming(clock=lambda:now[0])
+        timing.update("detect",0,10)
+        self.assertIsNone(timing.estimate())
+        now[0] = 5
+        timing.update("detect",2,10)
+        self.assertEqual(timing.estimate(),dict(scope="stage",basis="work completed in this stage",lower_s=12,upper_s=32))
+        timing.update("report")
+        self.assertIsNone(timing.estimate())
+        timing.update("render",0,10)
+        now[0] = 9
+        timing.update("render",2,10)
+        self.assertEqual(timing.estimate()["scope"],"analysis")
+        self.assertEqual(timing.profile()["durations"]["render"],4)
+
+    def test_history_scaling_and_unrelated_or_overdue_runs(self):
+        history = [{"pixels":100,"durations":dict(read=2,detect=10,classify=3,report=4,render=6)}]
+        now = [0.]
+        timing = RunTiming(pixels=200,history=history,clock=lambda:now[0])
+        timing.update("read")
+        now[0] = 1
+        estimate = timing.estimate()
+        self.assertEqual((estimate["scope"],estimate["lower_s"],estimate["upper_s"]),("analysis",27,72))
+        now[0] = 10
+        self.assertIsNone(timing.estimate())
+        timing = RunTiming(pixels=10000,history=history,clock=lambda:now[0])
+        timing.update("render")
+        self.assertIsNone(timing.estimate())
 
 
 class ConstantDetector(torch.nn.Module):
@@ -147,6 +180,8 @@ class InferenceOutputTests(unittest.TestCase):
             self.assertEqual(result["changed_pixels"], 128**2)
             self.assertEqual(list(dict.fromkeys(stages)), ["read","detect","classify","report","render"])
             self.assertIn("overlay.png", result["images"])
+            self.assertEqual(result["analysis_settings"]["channels"],["HH","HV"])
+            self.assertEqual(result["analysis_settings"]["detector_overlap_px"],0)
             self.assertTrue(result["viewer_url"].startswith("/change?v="))
             overlay = Image.open(Path(directory) / "overlay.png").convert("RGBA")
             self.assertTrue(np.any(np.asarray(overlay)[:,:,3] > 0))

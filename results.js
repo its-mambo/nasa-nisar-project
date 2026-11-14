@@ -66,6 +66,7 @@ async function showResultMode(mode) {
     resultCanvas.setAttribute("aria-label", label);
     if (resultViewport.width !== img.naturalWidth || resultViewport.height !== img.naturalHeight) {
       resultViewport.setRaster(img.naturalWidth, img.naturalHeight);
+      Nisar.restoreViewport(resultViewport,Nisar.view.read(resultRevision()).viewport);
     } else resultViewport.invalidate();
     resultsEl("resultMapStatus").hidden = true;
     const changeName = mode === "t0" ? "change" : "change_t1";
@@ -97,9 +98,10 @@ function renderResultsV2(data) {
     resultLayers = new Map();
     resultImage = resultOverlay = null;
     resultViewport.setRaster(0,0);
-    resultMode = "t0";
-    resultShowChange = !!data.images?.["overlay.png"];
-    resultGrayscale = false;
+    const saved = Nisar.view.read(resultRevision());
+    resultMode = saved.date || "t0";
+    resultShowChange = !!data.images?.["overlay.png"] && (saved.showChange ?? true);
+    resultGrayscale = !!data.images?.["t0_hh.png"] && !!data.images?.["t1_hh.png"] && (saved.grayscale ?? false);
   }
   resultsEl("resultShowChange").disabled = !data.images?.["overlay.png"];
   resultsEl("resultGrayscale").disabled = !(data.images?.["t0_hh.png"] && data.images?.["t1_hh.png"]);
@@ -111,7 +113,8 @@ function renderResultsV2(data) {
   setResultText("resultDates", start && end ? `${dateFormat.format(start)} → ${dateFormat.format(end)}` : "Acquisition dates unavailable");
   const days = start && end ? Math.round((Date.UTC(end.getUTCFullYear(),end.getUTCMonth(),end.getUTCDate()) - Date.UTC(start.getUTCFullYear(),start.getUTCMonth(),start.getUTCDate())) / 86400000) : null;
   setResultText("resultDays", days === null ? "Date interval unavailable" : `${days} days`);
-  setResultText("resultEpsg", roi.epsg ? `EPSG:${roi.epsg}` : "Projection unavailable");
+  setResultText("resultEpsg", roi.epsg ? `Map reference · EPSG:${roi.epsg} ⓘ` : "Projection unavailable");
+  resultsEl("resultEpsg").disabled = !roi.epsg;
   setResultText("resultMapScale", `${roi.model_spacing_m ?? "—"} m grid · EPSG:${roi.epsg ?? "—"}`);
   setResultText("resultFlaggedArea", `${resultArea(data.changed_pixels * (roi.model_spacing_m || 0) ** 2 / 1e6)} km²`);
   const pct = data.valid_pixels ? 100 * data.changed_pixels / data.valid_pixels : 0;
@@ -129,18 +132,7 @@ function renderResultsV2(data) {
   setResultText("resultSectors", sectors.length ? sectors.map(z => z.zone.replace(/\b\w/g, c => c.toUpperCase())).join(" · ") : "No flagged sectors");
   const geo = acq.t0 || {};
   setResultText("resultGeometry", [geo.orbitPassDirection, geo.lookDirection, geo.trackNumber == null ? null : `Track ${geo.trackNumber}`, geo.frameNumber == null ? null : `Frame ${geo.frameNumber}`].filter(Boolean).join(" · ") || "Acquisition geometry unavailable");
-  const pairs = (data.paired_sector_deltas || []).filter(row => row.flagged?.median_delta_hh_hv_db && row.unflagged?.median_delta_hh_hv_db);
-  if (pairs.length) {
-    const text = pairs.map(row => {
-      const flagged = row.flagged.median_delta_hh_hv_db;
-      const background = row.unflagged.median_delta_hh_hv_db;
-      return `${row.zone}: median HH ${flagged[0] >= 0 ? "+" : ""}${flagged[0].toFixed(2)} dB, HV ${flagged[1] >= 0 ? "+" : ""}${flagged[1].toFixed(2)} dB in flagged cells; HH ${background[0] >= 0 ? "+" : ""}${background[0].toFixed(2)} dB, HV ${background[1] >= 0 ? "+" : ""}${background[1].toFixed(2)} dB in unflagged cells.`;
-    }).join("\n");
-    setResultText("resultPattern", text);
-  } else {
-    setResultText("resultPattern", data.spatial_context?.change_map_description || "No paired sector comparison is available for this selection.");
-  }
-  setResultText("resultPatternNote", data.interpretation?.source === "visual" ? "AI interpretation is unvalidated. Blue is not a water map." : "Measured SAR values describe change, not its physical cause.");
+  NisarEvidence.render(data);
   resultsEl("resultViewerLink").disabled = resultRevision() === null;
   showResultMode(resultMode);
 }
@@ -155,16 +147,31 @@ function resultRevision() {
 resultsEl("resultViewerLink").addEventListener("click", () => {
   const rev = resultRevision();
   if (rev === null) return;
+  saveResultPreferences({viewport:Nisar.captureViewport(resultViewport)});
   location.href = `/change?v=${rev}`;
 });
+window.addEventListener("pagehide",() => {
+  const viewport = Nisar.captureViewport(resultViewport);
+  if (viewport) saveResultPreferences({viewport});
+});
 
-document.querySelectorAll("[data-result-mode]").forEach(button => button.addEventListener("click", () => showResultMode(button.dataset.resultMode)));
+function saveResultPreferences(extra={}) {
+  Nisar.view.save(resultRevision(), {date:resultMode,grayscale:resultGrayscale,showChange:resultShowChange,...extra});
+}
+document.querySelectorAll("[data-result-mode]").forEach(button => button.addEventListener("click", () => {
+  resultMode = button.dataset.resultMode;
+  saveResultPreferences({viewerMode:resultMode});
+  showResultMode(resultMode);
+}));
+resultsEl("resultEpsg").addEventListener("click",() => Nisar.openProjection(resultData?.roi?.epsg));
 resultsEl("resultShowChange").addEventListener("click", () => {
   resultShowChange = !resultShowChange;
+  saveResultPreferences();
   showResultMode(resultMode);
 });
 resultsEl("resultGrayscale").addEventListener("click", () => {
   resultGrayscale = !resultGrayscale;
+  saveResultPreferences();
   showResultMode(resultMode);
 });
 resultsEl("resultZoomIn").addEventListener("click", () => resultZoom(1.5));

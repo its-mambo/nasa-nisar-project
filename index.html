@@ -26,7 +26,7 @@
   </nav>
   <div class="page-head">
     <div>
-      <h1><span id="pickTitle">Load GCOV images</span> <span class="tag" id="crsTag" hidden></span></h1>
+      <h1><span id="pickTitle">Load GCOV images</span> <button type="button" class="tag crs-help" id="crsTag" aria-haspopup="dialog" hidden></button></h1>
       <div class="chips" id="chips"><span>Load a T0 / T1 L-SAR GCOV pair to begin.</span></div>
       <p id="status" role="status" aria-live="polite">Choose two L-SAR GCOV products.</p>
     </div>
@@ -213,8 +213,9 @@
           <li data-stage="render">Prepare result images</li>
         </ol>
         <p id="modelProgressText" role="status" aria-live="polite">Starting analysis…</p>
+        <p id="modelEstimate" class="model-estimate" role="status">Estimating time after some work is completed…</p>
         <progress id="modelStageProgress" aria-label="Current stage progress"></progress>
-        <p class="threshold-help">The percentage counts image tiles checked during detection. Other stages show an activity indicator.</p>
+        <p class="threshold-help">Percentages count completed tiles or result images. Time ranges are approximate and update as the work progresses.</p>
       </div>
     </section>
     <p class="analysis-footnote" id="analysisFootnote">Results will open automatically. You can reload this tab and reconnect to the running analysis.</p>
@@ -225,7 +226,7 @@
   <div class="results-shell">
     <div class="results-crumb">Projects / Analysis / Results</div>
     <div class="results-hero"><h2>Change detection results</h2><span class="results-badge">✓ Analysis complete</span><span class="results-sample">REAL SAMPLE · MEASURED REPORT</span></div>
-    <div class="results-meta"><span>NISAR L2 GCOV</span><span id="resultDates"></span><span id="resultDays"></span><span id="resultEpsg"></span></div>
+    <div class="results-meta"><span>NISAR L2 GCOV</span><span id="resultDates"></span><span id="resultDays"></span><button type="button" class="crs-help" id="resultEpsg" aria-haspopup="dialog"></button></div>
     <div class="results-grid">
       <div class="results-map-card">
         <canvas id="resultMap" role="img" aria-label="Detector change overlay"></canvas>
@@ -254,12 +255,30 @@
           <div class="results-split-labels"><span id="resultModelPct"></span><span id="resultUnflaggedPct"></span></div><div class="results-split"><span id="resultSplitFill"></span></div>
           <p class="results-caveat">Model score is experimental, not a calibrated probability.</p>
         </section>
-        <section class="results-card" aria-labelledby="resultPatternTitle"><div class="results-pattern-head"><h3 id="resultPatternTitle">Observed SAR patterns</h3><b>MEASURED</b></div><p id="resultPattern" class="results-pattern"></p><p id="resultPatternNote" class="results-pattern-note"></p></section>
+        <section class="results-card map-reading-guide"><h3>Reading this map</h3><p>Blue shows detector-flagged locations, with intensity based on the size of the HH signal change.</p><p>Compare Before and After with the same mask and display settings. Grayscale changes the base image; the mask stays blue.</p><p>Unmarked areas can include weaker detections or missing data. Check usable coverage below.</p></section>
       </div>
     </div>
+        <section class="results-card results-pattern-section" aria-labelledby="resultPatternTitle">
+          <div class="results-pattern-head"><h3 id="resultPatternTitle">How the radar signal changed</h3><b>MEASURED</b></div>
+          <p class="evidence-intro">Before → After. Negative dB = weaker return; positive dB = stronger return.</p>
+          <div class="evidence-channels" role="group" aria-label="Radar measurement channel"><button type="button" data-evidence-channel="0" aria-pressed="true">HH · same polarization</button><button type="button" data-evidence-channel="1" aria-pressed="false">HV · cross polarization</button></div>
+          <p id="resultPattern" class="evidence-summary"></p>
+          <div id="resultPatternComparisons"></div>
+          <p id="resultPatternNote" class="results-pattern-note"></p>
+        </section>
     <section class="results-science" aria-labelledby="resultScienceTitle">
-      <div class="results-science-head"><h3 id="resultScienceTitle">Scientific details</h3><a id="resultDownload" class="results-outline" download="change.png">↓ Download PNG</a><button id="resultOpenReport" class="results-primary" type="button">▣ View measured report</button></div>
+      <div class="results-science-head"><h3 id="resultScienceTitle">Evidence &amp; scientific details</h3><a id="resultDownload" class="results-outline" download="change.png">↓ Download PNG</a><a id="resultJson" class="results-outline" download>↓ Measurements JSON</a><a id="resultCsv" class="results-outline" download>↓ Sector CSV</a><button id="resultOpenReport" class="results-primary" type="button">▣ View measured report</button></div>
+      <p class="evidence-intro">Check coverage, image comparability, and how the measurements were made before drawing an environmental conclusion.</p>
       <div class="results-detail-grid"><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">◇</span><div><span>Selection coverage</span><strong id="resultCoverage"></strong></div></div><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">▥</span><div><span>Top flagged sectors</span><strong id="resultSectors"></strong></div></div><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">◇</span><div><span>Acquisition geometry</span><strong id="resultGeometry"></strong></div></div></div>
+      <div id="scienceWarnings" class="science-warnings" role="status"></div>
+      <div id="scienceMetrics" class="science-metrics"></div>
+      <div class="science-panels">
+        <section class="science-panel"><h4>Before and after, in numbers</h4><div id="scienceBackscatter"></div></section>
+        <section class="science-panel"><h4>Where change was flagged</h4><div id="scienceSectors"></div></section>
+      </div>
+      <details class="science-disclosure"><summary>Acquisitions, quality checks &amp; map coordinates</summary><div id="scienceAcquisitions"></div></details>
+      <details class="science-disclosure"><summary>Analysis settings &amp; reproducibility</summary><div id="scienceMethods"></div></details>
+      <section class="science-limits"><h4>What to check next</h4><p>These measurements describe radar-signal change. Confirm a possible environmental cause with another radar date, optical imagery, or local observations.</p><p>No independently validated accuracy or calibrated confidence interval is available for this selection. Unflagged cells are not confirmed stable.</p></section>
     </section>
   </div>
   <dialog id="resultReportDialog" class="results-report-dialog" aria-labelledby="resultReportTitle">
@@ -274,6 +293,8 @@
 </section>
 
 <script src="/zoom.js"></script>
+<script src="/explorer.js"></script>
+<script src="/results-evidence.js"></script>
 <script src="/results.js"></script>
 <script src="/pick.js"></script>
 </html>

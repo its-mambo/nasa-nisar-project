@@ -350,6 +350,7 @@ class SarModel:
         from change_model import (ChangeModel, TILE_SIZE, checkpoint_spec, inference_device,
                                   load_payload, scene_dtype, verify_run)
         pack=load_payload(weights)
+        self.detector_sha256=pack["detector_sha256"]
         p,clip=checkpoint_spec(pack["detector"])
         self.spec=p["stats"]
         self.device,self.amp=inference_device(device_name,"auto")

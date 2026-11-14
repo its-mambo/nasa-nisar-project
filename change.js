@@ -17,6 +17,10 @@
   // ---------- Canvas drawing ----------
   const view = new RasterViewport(canvas, redraw, {wheelZoom: true, upscale: true});
   view.enableDrag(0);
+  window.addEventListener("pagehide",() => {
+    const viewport = Nisar.captureViewport(view);
+    if (viewport) Nisar.view.save(revision,{viewport});
+  });
 
   // Draws `img` into raster coordinates, limited to raster columns [c0, c1).
   function drawLayer(ctx, img, c0, c1) {
@@ -55,6 +59,7 @@
       b.setAttribute("aria-pressed", String(b.dataset.view === mode)));
     updateLabel();
     view.invalidate();
+    Nisar.view.save(revision, {viewerMode:mode, ...(["t0","t1"].includes(mode) ? {date:mode} : {})});
   }
 
   function setGrayscale(on) {
@@ -62,6 +67,7 @@
     el("grayscale").setAttribute("aria-checked", String(on));
     updateLabel();
     view.invalidate();
+    Nisar.view.save(revision, {grayscale:on});
   }
 
   function setChange(on) {
@@ -70,6 +76,7 @@
     el("changeLegend").parentElement.hidden = !on;
     updateLabel();
     view.invalidate();
+    Nisar.view.save(revision, {showChange:on});
   }
 
   function setSplit(pct) {
@@ -79,6 +86,7 @@
     handle.setAttribute("aria-valuenow", String(rounded));
     handle.setAttribute("aria-valuetext", `${rounded}%`);
     view.invalidate();
+    Nisar.view.save(revision, {split:state.split});
   }
 
   function updateLabel() {
@@ -228,14 +236,19 @@
       showMessage("This result is no longer available.", {href: "/change", text: "Open the latest result"});
       return;
     }
-    message.hidden = true;
-    view.setRaster(state.images.t0.naturalWidth, state.images.t0.naturalHeight);
     const extras = await Promise.allSettled(["t0_hh", "t1_hh", "overlay"].map(async name => {
       state.images[name] = await loadImage(name);
     }));
     el("grayscale").disabled = !(state.images.t0_hh && state.images.t1_hh);
     el("overlay").disabled = !state.images.overlay;
-    setChange(!!state.images.overlay);
+    const saved = Nisar.view.read(revision);
+    setGrayscale(!el("grayscale").disabled && (saved.grayscale ?? false));
+    setChange(!el("overlay").disabled && (saved.showChange ?? true));
+    setMode(saved.viewerMode || saved.date || "split");
+    setSplit(saved.split ?? 50);
+    message.hidden = true;
+    view.setRaster(state.images.t0.naturalWidth, state.images.t0.naturalHeight);
+    Nisar.restoreViewport(view,saved.viewport);
     if (extras.some(item => item.status === "rejected")) {
       el("viewerNotice").textContent = "Some display layers are unavailable for this result. Run a new analysis to generate them.";
       el("viewerNotice").hidden = false;

@@ -153,6 +153,10 @@
   .threshold-error { margin: .4rem 0; color: #a12e22; font-size: .78rem; }
   .frequency-info-button { display: inline-flex; align-items: center; gap: .25rem; border: 0; padding: 0; color: var(--teal-ink); background: transparent; cursor: help; font: inherit; text-decoration: underline dotted; text-underline-offset: 3px; }
   .frequency-info-button.pill { padding: .1rem .45rem; border: 1px solid #b9d6d7; font-size: .72rem; }
+  .crs-help { border: 0; background: transparent; color: var(--teal-ink); font: inherit; cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; padding: 0; }
+  .crs-help.tag { background: var(--teal-soft); padding: .12rem .5rem; font-size: .78rem; }
+  .projection-name { padding: .7rem; border-radius: 6px; background: var(--teal-soft); font-weight: 600; }
+  .model-estimate { font-size: .82rem; color: var(--teal-ink); padding: .55rem .7rem; border-radius: 6px; background: var(--teal-soft); line-height: 1.45; }
   .info-dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 40px); padding: 0; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--card); overflow: auto; box-shadow: 0 20px 70px #14212b40; }
   .info-dialog::backdrop { background: #14212b80; }
   .info-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1.1rem; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--card); }

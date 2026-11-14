@@ -284,7 +284,8 @@ function showPairDetails(p) {
   const m0 = p.acquisitions?.t0 || {}, m1 = p.acquisitions?.t1 || {};
   const [ox,oy,OX,OY] = p.overlap;
   const [dx,dy] = p.native_spacing_m.map(Math.abs);
-  $("crsTag").textContent = "EPSG:"+p.epsg; $("crsTag").hidden = false;
+  $("crsTag").textContent = "EPSG:"+p.epsg+" ⓘ"; $("crsTag").hidden = false;
+  $("crsTag").setAttribute("aria-label",`Explain map reference EPSG:${p.epsg}`);
   const frequency = document.createElement("button");
   frequency.type = "button"; frequency.className = "frequency-info-button";
   frequency.textContent = `Frequency ${p.frequency} ⓘ`;
@@ -339,6 +340,7 @@ $("loadStep").addEventListener("click",() => showUpload(true));
 $("areaStep").addEventListener("click",() => { if (state) showUpload(false); });
 $("analysisInfoBtn").addEventListener("click",() => $("analysisInfoDialog").showModal());
 $("freqPill").addEventListener("click",() => $("frequencyDialog").showModal());
+$("crsTag").addEventListener("click",() => Nisar.openProjection(state?.epsg));
 for (const button of document.querySelectorAll("[data-close-dialog]")) {
   button.addEventListener("click",() => $(button.dataset.closeDialog).close());
 }
@@ -465,6 +467,7 @@ function showAnalysisPage() {
   $("analysisTitle").focus({preventScroll:true});
 }
 function showAnalysisError(err) {
+  $("modelEstimate").textContent = "Time estimate stopped because the analysis was interrupted.";
   $("analysisTitle").textContent = "Your analysis could not finish";
   $("analysisBadge").textContent = "Analysis interrupted";
   $("modelProgressTitle").textContent = "Analysis interrupted";
@@ -498,6 +501,12 @@ function updateModelProgress(job) {
   if (job.status === "complete") { progress.max = progress.value = 1; }
   if (job.status === "complete") $("modelProgressTitle").textContent = "Analysis complete";
   $("modelProgressText").textContent = message;
+  const estimate = job.estimate;
+  const duration = seconds => seconds < 60 ? `${Math.ceil(seconds)}s` : `${Math.ceil(seconds/60)} min`;
+  $("modelEstimate").textContent = estimate
+    ? `About ${duration(estimate.lower_s)}–${duration(estimate.upper_s)} remaining ${estimate.scope === "stage" ? "in this stage" : "for this analysis"} · based on ${estimate.basis}.`
+    : job.status === "complete" ? "Analysis complete."
+    : "Time estimate unavailable yet · learning from progress and earlier runs on this server.";
   $("runBtn").textContent = ({read:"Reading images…", detect:"Detecting changes…", classify:"Measuring changes…", report:"Generating explanation…", render:"Preparing results…"})[job.stage] || "Analyzing…";
   status(message);
 }
@@ -522,6 +531,7 @@ async function followRun(runId) {
       try { response = await fetch(`/infer/${encodeURIComponent(runId)}`, {cache:"no-store"}); }
       catch {
         $("modelProgressText").textContent = "Connection interrupted. Reconnecting to the running analysis…";
+        $("modelEstimate").textContent = "Time estimate paused while reconnecting.";
         await new Promise(resolve => setTimeout(resolve, 2000));
         continue;
       }

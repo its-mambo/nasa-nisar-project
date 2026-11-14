@@ -1,6 +1,7 @@
 """FastAPI routes for the NISAR analysis demo."""
 
 from io import BytesIO
+from collections import deque
 import asyncio
 import json
 from pathlib import Path
@@ -12,6 +13,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
+from progress_timing import RunTiming
 
 
 MAX_CHUNK = 8 * 1024 * 1024
@@ -20,6 +22,8 @@ STATIC_FILES = {"index.html": "text/html", "change.html": "text/html",
                 "results.js": "text/javascript", "pick.css": "text/css",
                 "results.css": "text/css", "change.css": "text/css",
                 "change.js": "text/javascript", "navigation.css": "text/css"}
+STATIC_FILES["explorer.js"] = "text/javascript"
+STATIC_FILES["results-evidence.js"] = "text/javascript"
 # Only these icon files may be served from /icons/ (no arbitrary paths).
 ICON_FILES = frozenset({"zoom-in", "zoom-out", "recenter", "fullscreen", "exit-fullscreen",
                         "split-handle", "swatch", "swatch-selected", "dot-t0", "dot-t1"})
@@ -48,14 +52,17 @@ def create_app(demo, root: Path, names):
     # Progress has its own lock: inference holds demo.lock while using the models.
     # Status requests must remain responsive throughout that work.
     jobs, job_lock, tasks = {}, threading.Lock(), set()
+    timing_history = deque(maxlen=8)
 
     def job_snapshot(job):
-        return {key: value for key, value in job.items() if key not in {"started", "finished"}} | {
-            "elapsed_s": round(job.get("finished", monotonic()) - job["started"], 1)}
+        return {key: value for key, value in job.items() if key not in {"started", "finished", "timing"}} | {
+            "elapsed_s": round(job.get("finished", monotonic()) - job["started"], 1),
+            "estimate": job["timing"].estimate() if job["status"] == "running" else None}
 
     async def run_job(run_id, body):
         def update(stage, message, completed=None, total=None):
             with job_lock:
+                jobs[run_id]["timing"].update(stage, completed, total)
                 jobs[run_id].update(stage=stage, message=message, completed=completed, total=total)
 
         def work():
@@ -69,6 +76,7 @@ def create_app(demo, root: Path, names):
                 if isinstance(result, JSONResponse):
                     job.update(status="failed", error=json.loads(result.body)["error"])
                 else:
+                    timing_history.append(job["timing"].profile())
                     job.update(status="complete", stage="complete", message="Analysis complete", result=result)
                 job["finished"] = monotonic()
         except Exception as exc:
@@ -239,9 +247,12 @@ def create_app(demo, root: Path, names):
             while len(jobs) >= 8:
                 del jobs[next(iter(jobs))]
             run_id = uuid4().hex
+            box = body.get("box")
+            pixels = ((box[2]-box[0])*(box[3]-box[1])
+                      if isinstance(box,list) and len(box)==4 and all(type(v) is int for v in box) else 1)
             jobs[run_id] = dict(run_id=run_id, status="running", stage="read",
                                 message="Waiting for the model…", completed=None, total=None,
-                                started=monotonic())
+                                started=monotonic(), timing=RunTiming(pixels, timing_history))
             snapshot = job_snapshot(jobs[run_id])
         task = asyncio.create_task(run_job(run_id, body))
         tasks.add(task)
