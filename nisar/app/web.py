@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from fastapi.responses import FileResponse, JSONResponse
+from nisar.features.samples.matched_evidence import IMAGE_FILES as MATCHED_IMAGES, SITE_IDS
 
 
 PAGES = {
@@ -22,12 +23,24 @@ STATIC_FILES = {
     "markdown-it.min.js": ("shared/vendor/markdown-it.min.js", "text/javascript"),
     "investigation.js": ("features/results/investigation.js", "text/javascript"),
     "external-context.js": ("features/results/external-context.js", "text/javascript"),
+    "matched-evidence.js": ("features/results/matched-evidence.js", "text/javascript"),
     "reference-june-2026.jpg": ("features/results/reference/landsat-june-2026.jpg", "image/jpeg"),
     "reference-september-2026.jpg": ("features/results/reference/landsat-september-2026.jpg", "image/jpeg"),
     "results.css": ("features/results/results.css", "text/css"),
     "results-evidence.js": ("features/results/results-evidence.js", "text/javascript"),
     "report-view.js": ("features/reporting/report-view.js", "text/javascript"),
 }
+STATIC_FILES.update({
+    "matched/" + name: ("features/results/reference/matched/" + name, "image/png")
+    for name in MATCHED_IMAGES
+})
+STATIC_FILES.update({
+    f"matched-source/{site}-{label}.tif":
+        (f"../evaluation/karakalpakstan-pilot/source/{site}-{label}.tif", "image/tiff")
+    for site in SITE_IDS for label in ("before", "after")
+})
+STATIC_FILES["matched-source/manifest.json"] = ("../evaluation/karakalpakstan-pilot/manifest.json", "application/json")
+STATIC_FILES["matched-source/sites.csv"] = ("../evaluation/karakalpakstan-pilot/sites.csv", "text/csv")
 ICON_FILES = frozenset({"zoom-in", "zoom-out", "recenter", "fullscreen", "exit-fullscreen",
                         "split-handle", "swatch", "swatch-selected", "dot-t0", "dot-t1"})
 

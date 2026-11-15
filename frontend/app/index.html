@@ -321,7 +321,7 @@
           <dl id="investigationMetrics" class="investigation-metrics"></dl>
           <p id="investigationScope" class="investigation-scope"></p>
           <h4>What this does not establish</h4><p id="investigationLimit"></p>
-          <h4>Next independent check · not yet done</h4><p id="investigationCheck"></p>
+          <h4>Next independent check</h4><p id="investigationCheck"></p>
           <button id="investigationContext" type="button" class="report-map-link" hidden>Read independent regional evidence ↗</button>
           <details id="investigationSourceDetails"><summary>Evidence used</summary><p id="investigationSource"></p></details>
           <div class="investigation-actions"><button id="investigationPrevious" type="button" class="results-outline">← Previous</button><button id="investigationRecenter" type="button" class="results-outline">Recenter stop</button><button id="investigationNext" type="button" class="results-primary">Next stop →</button><button id="investigationFinish" type="button" class="results-primary" hidden>Finish · overview ↗</button></div>
@@ -339,6 +339,7 @@
         </section>
       </div>
     </div>
+    <section id="resultMatchedEvidence" class="results-card matched-evidence" aria-label="Location-matched optical evidence" tabindex="-1" hidden></section>
     <section class="results-card evidence-chat-panel" aria-labelledby="evidenceChatTitle">
       <div class="evidence-chat-heading"><h3 id="evidenceChatTitle">Ask about this result</h3><span>AI interpretation · Qwen</span></div>
       <p id="evidenceChatHint">Qwen uses the selected before and after images, detector mask, and measured evidence.</p>
@@ -380,7 +381,8 @@
       <section class="report-finding" aria-labelledby="reportFindingTitle"><span class="report-eyebrow">1 · Main finding</span><h4 id="reportFindingTitle"></h4><p id="reportFindingNote"></p></section>
       <section class="report-evidence-section" aria-labelledby="reportEvidenceTitle"><h4 id="reportEvidenceTitle">2 · Evidence</h4><div id="reportEvidence" class="report-evidence-chips"></div><div id="reportCharts" class="report-charts"></div></section>
       <section id="reportExternalContext" class="external-context" aria-label="Independent regional evidence" hidden></section>
-      <section aria-labelledby="reportChecksTitle"><h4 id="reportChecksTitle">3 · Next checks</h4><p class="report-small">Suggested location-level comparisons have not been completed. Reviewed regional sources are shown separately above.</p><div id="reportChecks" class="report-checks"></div></section>
+      <section id="reportMatchedEvidence" class="matched-evidence" aria-label="Location-matched optical evidence" hidden></section>
+      <section aria-labelledby="reportChecksTitle"><h4 id="reportChecksTitle">3 · Next checks</h4><p id="reportChecksNote" class="report-small">Reviewed evidence is shown separately above. Further independent checks are recommended.</p><div id="reportChecks" class="report-checks"></div></section>
       <details class="report-technical"><summary>Evidence references &amp; technical details</summary><div id="reportReferences"></div><p id="reportValidation" class="report-small"></p><details><summary>Full analysis data</summary><pre id="details"></pre></details></details>
     </div>
   </dialog>
@@ -390,6 +392,7 @@
 <script src="/explorer.js"></script>
 <script src="/results-evidence.js"></script>
 <script src="/external-context.js"></script>
+<script src="/matched-evidence.js"></script>
 <script src="/report-view.js"></script>
 <script src="/investigation.js"></script>
 <script src="/markdown-it.min.js"></script>

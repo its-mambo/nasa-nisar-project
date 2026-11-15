@@ -11,6 +11,7 @@ let resultLayers = new Map();
 let resultLoadId = 0;
 let resultData = null;
 let investigationFocus = null, investigationFocusPending = false;
+let matchedFocus = null, matchedFocusPending = false;
 const resultViewport = new RasterViewport(resultCanvas, ctx => {
   if (!resultImage) return;
   const [x, y, right, bottom] = resultViewport.visible();
@@ -19,19 +20,24 @@ const resultViewport = new RasterViewport(resultCanvas, ctx => {
     if (resultShowChange && resultOverlay) {
       ctx.drawImage(resultOverlay, x, y, right - x, bottom - y, x, y, right - x, bottom - y);
     }
-    if (investigationFocus) {
-      const box = NisarInvestigation.sectorBox(investigationFocus.zone);
+    if (investigationFocus || matchedFocus) {
+      const box = matchedFocus?.viewport_box || NisarInvestigation.sectorBox(investigationFocus.zone);
       if (box) {
         const [a,b,c,d] = box.map((value, i) => Math.floor(value * (i % 2 ? resultViewport.height : resultViewport.width)));
         const unit = 1 / resultViewport.scale;
         ctx.save(); ctx.strokeStyle = "#ffc81e"; ctx.lineWidth = 2 * unit;
         ctx.setLineDash([8 * unit, 5 * unit]); ctx.strokeRect(a,b,c-a,d-b); ctx.setLineDash([]);
-        const label = `Stop ${investigationFocus.number} · ${investigationFocus.zone} sector`;
+        const label = matchedFocus ? `Optical check · ${matchedFocus.title}` : `Stop ${investigationFocus.number} · ${investigationFocus.zone} sector`;
         ctx.font = `600 ${12 * unit}px system-ui, sans-serif`;
         const labelWidth = ctx.measureText(label).width + 16 * unit;
         const labelX = Math.max(a, Math.min(c - labelWidth, right - labelWidth - 8 * unit));
         ctx.fillStyle = "#ffc81e"; ctx.fillRect(labelX,d - 24 * unit,labelWidth,24 * unit);
         ctx.fillStyle = "#14212b"; ctx.fillText(label,labelX + 8 * unit,d - 8 * unit);
+        if (matchedFocus?.comparison_point) {
+          const [px,py] = matchedFocus.comparison_point.viewport_point;
+          ctx.strokeStyle = "#fff"; ctx.lineWidth = 2 * unit; ctx.beginPath();
+          ctx.arc(px * resultViewport.width, py * resultViewport.height, 6 * unit, 0, 2 * Math.PI); ctx.stroke();
+        }
         ctx.restore();
       }
     }
@@ -53,6 +59,7 @@ function focusInvestigationStop() {
 }
 const investigation = NisarInvestigation.create({
   onSelect(stop) {
+    matchedFocus = null; matchedFocusPending = false;
     investigationFocus = stop; investigationFocusPending = true;
     // Allow the newly visible guide panel to establish the map dimensions first.
     requestAnimationFrame(() => {
@@ -62,11 +69,27 @@ const investigation = NisarInvestigation.create({
     });
   },
   onOverview() {
+    matchedFocus = null; matchedFocusPending = false;
     investigationFocus = null; investigationFocusPending = false;
     resultViewport.reset(); saveResultPreferences({viewport:Nisar.captureViewport(resultViewport)});
     resultsEl("investigation").scrollIntoView({behavior:"smooth",block:"start"});
   }
 });
+
+function inspectMatchedSite(site) {
+  matchedFocus = site; matchedFocusPending = true;
+  investigationFocus = null; investigationFocusPending = false;
+  if (!resultViewport.width || !resultViewport.w) return;
+  const [x,y,right,bottom] = site.viewport_box;
+  resultViewport.scale = Math.max(resultViewport.fitScale, Math.min(resultViewport.maxScale(),
+    resultViewport.w / ((right-x) * resultViewport.width) * .75,
+    resultViewport.h / ((bottom-y) * resultViewport.height) * .75));
+  resultViewport.x = resultViewport.w / 2 - (x+right) / 2 * resultViewport.width * resultViewport.scale;
+  resultViewport.y = resultViewport.h / 2 - (y+bottom) / 2 * resultViewport.height * resultViewport.scale;
+  resultViewport.clamp(); resultViewport.invalidate(); matchedFocusPending = false;
+  resultCanvas.scrollIntoView({behavior:"smooth",block:"center"});
+  saveResultPreferences({viewport:Nisar.captureViewport(resultViewport)});
+}
 
 const resultNumber = value => Number(value || 0).toLocaleString("en-US");
 const resultArea = value => Number(value || 0).toLocaleString("en-US", {maximumFractionDigits: 2, minimumFractionDigits: 2});
@@ -115,6 +138,7 @@ async function showResultMode(mode) {
       Nisar.restoreViewport(resultViewport,Nisar.view.read(resultRevision()).viewport);
     } else resultViewport.invalidate();
     if (investigationFocusPending) focusInvestigationStop();
+    if (matchedFocusPending) inspectMatchedSite(matchedFocus);
     resultsEl("resultMapStatus").hidden = true;
     const changeName = mode === "t0" ? "change" : "change_t1";
     const download = showMask ? `${changeName}${grayscale ? "_hh" : ""}.png` : file;
@@ -140,6 +164,7 @@ function renderResultsV2(data) {
   resultData = data;
   if (newResult) {
     investigationFocus = null; investigationFocusPending = false;
+    matchedFocus = null; matchedFocusPending = false;
     resultLayers = new Map();
     resultImage = resultOverlay = null;
     resultViewport.setRaster(0,0);
@@ -176,6 +201,7 @@ function renderResultsV2(data) {
   setResultText("resultGeometry", [geo.orbitPassDirection, geo.lookDirection, geo.trackNumber == null ? null : `Track ${geo.trackNumber}`, geo.frameNumber == null ? null : `Frame ${geo.frameNumber}`].filter(Boolean).join(" · ") || "Acquisition geometry unavailable");
   NisarEvidence.render(data);
   NisarExternalContext.render(resultsEl("resultExternalContext"), data);
+  NisarMatchedEvidence.render(resultsEl("resultMatchedEvidence"), data, {onInspect:inspectMatchedSite});
   resultsEl("resultViewerLink").disabled = resultRevision() === null;
   showResultMode(resultMode);
 }

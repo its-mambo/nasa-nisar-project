@@ -9,6 +9,7 @@ import threading
 
 from nisar.features.analysis.artifacts import NAMES
 from nisar.features.samples.context import regional_context
+from nisar.features.samples.matched_evidence import matched_evidence
 
 REVISION = re.compile(r"sample-[0-9a-f]{16}")
 FORMAT = "nisar_cached_sample_v1"
@@ -55,6 +56,12 @@ class CachedSample:
         context = regional_context(result)
         if context:
             result["evidence_report"]["external_context"] = context
+        pilot = matched_evidence(result)
+        if pilot:
+            result["evidence_report"]["matched_evidence"] = pilot
+            result["evidence_report"]["validation"] = (
+                "Four selected locations have exploratory optical checks. They do not establish detector accuracy, "
+                "confirmed changed area, or independently reviewed ground truth.")
         return result
 
 

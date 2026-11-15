@@ -1,0 +1,570 @@
+{
+  "schema_version": "nisar_matched_pilot_v1",
+  "id": "karakalpakstan-optical-pilot-v1",
+  "sample_revision": "sample-0893b8c3af904967",
+  "generated_at": "2026-11-15T05:18:56.530676+00:00",
+  "epsg": 32640,
+  "title": "Same locations, independent optical checks",
+  "summary": "Four selected 3 km squares compare the saved radar result with georeferenced Landsat imagery near both radar dates: optical support, a comparison, an unsupported water-loss interpretation, and an unresolved reference.",
+  "review_status": "AI-assisted exploratory visual review; no independent human or field review",
+  "selection": "Purposive examples selected after inspecting the saved overlay, optical imagery, quality masks, and exploratory water index. Not a random, blind, or held-out accuracy sample.",
+  "scope": "A location-matched demonstration, not a detector accuracy benchmark or an estimate of confirmed changed area. No precision, recall, IoU, or full-scene accuracy is inferred.",
+  "limitations": [
+    "Landsat dates are three days before Before radar and one day after After radar. Events within those gaps can differ.",
+    "Landsat reference cells are 30 m; radar cells are 20 m. Both use EPSG:32640. Shared map bounds and nearest-neighbor display reprojection match locations, but physical subpixel registration has not been independently measured.",
+    "A water index and Landsat water flags are diagnostic algorithms, not ground truth. Bright surfaces can produce misleading water-like index values.",
+    "Visible flags count nonzero alpha in the saved overlay. Rounding hides some originally flagged cells, so this is a lower bound; absence of visible flags does not establish an unflagged model cell.",
+    "A water-loss interpretation failure is not proof of a false positive for the generic radar-change detector. No detector false-positive/false-negative labels are established by this pilot."
+  ],
+  "methods": {
+    "quality": "Exclude QA_PIXEL bits 0–5 (fill, dilated cloud, cirrus, cloud, cloud shadow, snow), any QA_RADSAT flag, and zero reflectance DN. Grey marks excluded cells.",
+    "reflectance_scale": 2.75e-05,
+    "reflectance_offset": -0.2,
+    "mndwi": "(green − SWIR1) / (green + SWIR1); only positive denominators are used",
+    "water_like_cutoff": 0.15,
+    "water_like_note": "Exploratory diagnostic fixed at 0.15 for these examples, not a validated water classifier or tuned detector threshold",
+    "source_water_flag": "QA_PIXEL bit 7; independent source classification, not ground truth",
+    "display": "Both dates share reflectance range 0–0.6 and gamma exponent 0.7. Natural colour uses red/green/blue; false colour uses SWIR1/NIR/red. Nearest-neighbor display on the 20 m radar grid adds no optical detail.",
+    "statistics": "Optical diagnostics use original 30 m cell centres within each square. Radar medians are paired After − Before differences across all jointly valid native 20 m cells in the square, not just visible flags."
+  },
+  "method_sources": [
+    "https://www.usgs.gov/landsat-missions/landsat-collection-2-quality-assessment-bands",
+    "https://www.usgs.gov/faqs/how-do-i-use-a-scale-factor-landsat-level-2-science-products",
+    "https://planetarycomputer.microsoft.com/docs/concepts/sas/"
+  ],
+  "sources": [
+    {
+      "id": "LC08_L2SP_162030_20260618_02_T1",
+      "label": "before",
+      "sensor": "landsat-8",
+      "datetime": "2026-06-18T06:52:58.327741Z",
+      "date": "2026-06-18",
+      "resolution_m": 30,
+      "radar_date": "2026-06-21",
+      "offset_days": -3,
+      "url": "https://planetarycomputer.microsoft.com/api/stac/v1/collections/landsat-c2-l2/items/LC08_L2SP_162030_20260618_02_T1",
+      "scene_cloud_cover_percent": 1.34
+    },
+    {
+      "id": "LC09_L2SP_162030_20260914_02_T1",
+      "label": "after",
+      "sensor": "landsat-9",
+      "datetime": "2026-09-14T06:53:43.439443Z",
+      "date": "2026-09-14",
+      "resolution_m": 30,
+      "radar_date": "2026-09-13",
+      "offset_days": 1,
+      "url": "https://planetarycomputer.microsoft.com/api/stac/v1/collections/landsat-c2-l2/items/LC09_L2SP_162030_20260914_02_T1",
+      "scene_cloud_cover_percent": 1.9
+    }
+  ],
+  "radar_sources": {
+    "t0": {
+      "name": "NISAR_L2_PR_GCOV_023_107_D_067_2005_DHDH_A_20260621T150729_20260621T150804_P05023_N_F_J_001.h5",
+      "path": "src/NISAR_L2_PR_GCOV_023_107_D_067_2005_DHDH_A_20260621T150729_20260621T150804_P05023_N_F_J_001.h5",
+      "bytes": 1941962752,
+      "sha256": "dbc8fb9d9af7608b51fb854146501f3c5e001fb69fc7f9e857940214d5aa0a69",
+      "acquisition": {
+        "zeroDopplerStartTime": "2026-06-21T15:07:29.000000000",
+        "zeroDopplerEndTime": "2026-06-21T15:08:04.999342105",
+        "orbitPassDirection": "descending",
+        "lookDirection": "left",
+        "trackNumber": 107,
+        "frameNumber": 67,
+        "absoluteOrbitNumber": 4704
+      }
+    },
+    "t1": {
+      "name": "NISAR_L2_PR_GCOV_030_107_D_067_2005_DHDH_A_20260913T150726_20260913T150801_P05023_N_F_J_001.h5",
+      "path": "src/NISAR_L2_PR_GCOV_030_107_D_067_2005_DHDH_A_20260913T150726_20260913T150801_P05023_N_F_J_001.h5",
+      "bytes": 1937768448,
+      "sha256": "c68c6d71bcf9be1e58c89facaa4c969f7562c73b85e0b656b9e76573d8242092",
+      "acquisition": {
+        "zeroDopplerStartTime": "2026-09-13T15:07:26.000000000",
+        "zeroDopplerEndTime": "2026-09-13T15:08:01.999342105",
+        "orbitPassDirection": "descending",
+        "lookDirection": "left",
+        "trackNumber": 107,
+        "frameNumber": 67,
+        "absoluteOrbitNumber": 5915
+      }
+    }
+  },
+  "sites": [
+    {
+      "id": "contraction",
+      "title": "A water-like surface contracts",
+      "outcome": "optical_support",
+      "badge": "Optical support for surface change",
+      "bounds_wsen": [
+        626000,
+        4807000,
+        629000,
+        4810000
+      ],
+      "focus_point_en": [
+        626940,
+        4808910
+      ],
+      "observation": "The dark, water-like surface west of the visible boundary in June is largely replaced by a bright surface in September. The boundary is visible in both optical images and lies in a radar-flagged location.",
+      "conclusion": "The independent optical pair supports a local contraction of water-like cover near the radar dates. It supports investigating this alert; it does not validate every flagged cell or identify the cause.",
+      "next_check": "Review the shoreline at native optical resolution and obtain another date or local observations before estimating a confirmed water-loss area.",
+      "sample_pixel_box": [
+        4305,
+        1238,
+        4455,
+        1388
+      ],
+      "viewport_box": [
+        0.7257248819959542,
+        0.3389923329682366,
+        0.7510114632501685,
+        0.380065717415115
+      ],
+      "center_lon_lat": [
+        58.574978,
+        43.418547
+      ],
+      "area_km2": 9.0,
+      "comparison_point": {
+        "easting_m": 626940,
+        "northing_m": 4808910,
+        "image_fraction": [
+          0.31333333333333335,
+          0.36333333333333334
+        ],
+        "viewport_point": [
+          0.7336480107889414,
+          0.3539156626506024
+        ],
+        "optical": {
+          "before": {
+            "native_col": 31,
+            "native_row": 36,
+            "qa_pixel": 21952,
+            "total_cells": 1,
+            "usable_cells": 1,
+            "usable_fraction": 1.0,
+            "mndwi_usable_cells": 1,
+            "median_mndwi": 0.9924197384066585,
+            "water_like_cells": 1,
+            "water_like_fraction": 1.0,
+            "source_water_flag_cells": 1,
+            "source_water_flag_fraction": 1.0
+          },
+          "after": {
+            "native_col": 31,
+            "native_row": 36,
+            "qa_pixel": 21824,
+            "total_cells": 1,
+            "usable_cells": 1,
+            "usable_fraction": 1.0,
+            "mndwi_usable_cells": 1,
+            "median_mndwi": -0.04091478235250802,
+            "water_like_cells": 0,
+            "water_like_fraction": 0.0,
+            "source_water_flag_cells": 0,
+            "source_water_flag_fraction": 0.0
+          }
+        }
+      },
+      "radar": {
+        "paired_cells": 22500,
+        "total_cells": 22500,
+        "median_delta_hh_hv_db": [
+          1.9818215370178223,
+          -0.2286672592163086
+        ],
+        "visible_flag_cells": 13360,
+        "visible_flag_fraction": 0.5937777777777777,
+        "flag_scope": "Nonzero alpha in the original saved overlay; lower bound, not the complete detector mask"
+      },
+      "images": {
+        "radar_before": "/matched/contraction-radar_before.png",
+        "radar_after": "/matched/contraction-radar_after.png",
+        "overlay": "/matched/contraction-overlay.png",
+        "before_natural": "/matched/contraction-before-natural.png",
+        "before_false_color": "/matched/contraction-before-false_color.png",
+        "after_natural": "/matched/contraction-after-natural.png",
+        "after_false_color": "/matched/contraction-after-false_color.png"
+      },
+      "optical": {
+        "before": {
+          "total_cells": 10000,
+          "usable_cells": 10000,
+          "usable_fraction": 1.0,
+          "mndwi_usable_cells": 10000,
+          "median_mndwi": 0.4184861935059573,
+          "water_like_cells": 5384,
+          "water_like_fraction": 0.5384,
+          "source_water_flag_cells": 4131,
+          "source_water_flag_fraction": 0.4131,
+          "transform": [
+            30.0,
+            0.0,
+            625995.0,
+            0.0,
+            -30.0,
+            4810005.0
+          ]
+        },
+        "after": {
+          "total_cells": 10000,
+          "usable_cells": 9990,
+          "usable_fraction": 0.999,
+          "mndwi_usable_cells": 9990,
+          "median_mndwi": -0.033118918378968146,
+          "water_like_cells": 96,
+          "water_like_fraction": 0.00960960960960961,
+          "source_water_flag_cells": 469,
+          "source_water_flag_fraction": 0.04694694694694695,
+          "transform": [
+            30.0,
+            0.0,
+            625995.0,
+            0.0,
+            -30.0,
+            4810005.0
+          ]
+        }
+      },
+      "source_crops": {
+        "before": "/matched-source/contraction-before.tif",
+        "after": "/matched-source/contraction-after.tif"
+      }
+    },
+    {
+      "id": "reference",
+      "title": "A quiet comparison area",
+      "outcome": "comparison",
+      "badge": "No obvious optical surface change",
+      "bounds_wsen": [
+        596000,
+        4768000,
+        599000,
+        4771000
+      ],
+      "observation": "The same bright terrain and linear features remain visible in both optical images. No obvious water boundary appears. The saved overlay has no visible flags here, and the local median HH difference is small.",
+      "conclusion": "This is a useful comparison at 30 m optical resolution. It is not proof that nothing changed: smaller changes and changes in moisture or surface properties can remain invisible.",
+      "next_check": "Use this location to inspect alignment and display consistency. A larger evaluation must also sample unflagged locations where independent change is present.",
+      "sample_pixel_box": [
+        2805,
+        3188,
+        2955,
+        3338
+      ],
+      "viewport_box": [
+        0.47285906945380984,
+        0.872946330777656,
+        0.4981456507080243,
+        0.9140197152245345
+      ],
+      "center_lon_lat": [
+        58.197589,
+        43.071944
+      ],
+      "area_km2": 9.0,
+      "radar": {
+        "paired_cells": 22500,
+        "total_cells": 22500,
+        "median_delta_hh_hv_db": [
+          0.08974838256835938,
+          -0.31661128997802734
+        ],
+        "visible_flag_cells": 0,
+        "visible_flag_fraction": 0.0,
+        "flag_scope": "Nonzero alpha in the original saved overlay; lower bound, not the complete detector mask"
+      },
+      "images": {
+        "radar_before": "/matched/reference-radar_before.png",
+        "radar_after": "/matched/reference-radar_after.png",
+        "overlay": "/matched/reference-overlay.png",
+        "before_natural": "/matched/reference-before-natural.png",
+        "before_false_color": "/matched/reference-before-false_color.png",
+        "after_natural": "/matched/reference-after-natural.png",
+        "after_false_color": "/matched/reference-after-false_color.png"
+      },
+      "optical": {
+        "before": {
+          "total_cells": 10000,
+          "usable_cells": 10000,
+          "usable_fraction": 1.0,
+          "mndwi_usable_cells": 10000,
+          "median_mndwi": -0.26219171234841754,
+          "water_like_cells": 0,
+          "water_like_fraction": 0.0,
+          "source_water_flag_cells": 0,
+          "source_water_flag_fraction": 0.0,
+          "transform": [
+            30.0,
+            0.0,
+            595995.0,
+            0.0,
+            -30.0,
+            4771005.0
+          ]
+        },
+        "after": {
+          "total_cells": 10000,
+          "usable_cells": 10000,
+          "usable_fraction": 1.0,
+          "mndwi_usable_cells": 10000,
+          "median_mndwi": -0.2614461662739419,
+          "water_like_cells": 0,
+          "water_like_fraction": 0.0,
+          "source_water_flag_cells": 0,
+          "source_water_flag_fraction": 0.0,
+          "transform": [
+            30.0,
+            0.0,
+            595995.0,
+            0.0,
+            -30.0,
+            4771005.0
+          ]
+        }
+      },
+      "source_crops": {
+        "before": "/matched-source/reference-before.tif",
+        "after": "/matched-source/reference-after.tif"
+      }
+    },
+    {
+      "id": "bright-surface",
+      "title": "A water-loss interpretation fails",
+      "outcome": "interpretation_failure",
+      "badge": "Radar alert; water-loss claim unsupported",
+      "bounds_wsen": [
+        554000,
+        4789000,
+        557000,
+        4792000
+      ],
+      "observation": "The radar return changes strongly and much of the crop has visible flags. Both optical dates show a bright surface. A simple water index is positive, but the source water flag is absent at both dates; the index alone is not a reliable water label here.",
+      "conclusion": "Calling these blue radar flags water loss would be unsupported. This is a failure of that environmental interpretation, not a proven false positive for a generic radar-change detector. The surface material and cause remain unresolved.",
+      "next_check": "Seek independent land-cover information and additional dates. Do not use a spectral index alone as ground truth on bright surfaces.",
+      "sample_pixel_box": [
+        705,
+        2138,
+        855,
+        2288
+      ],
+      "viewport_box": [
+        0.11884693189480783,
+        0.5854326396495071,
+        0.14413351314902226,
+        0.6265060240963856
+      ],
+      "center_lon_lat": [
+        57.68386,
+        43.265268
+      ],
+      "area_km2": 9.0,
+      "radar": {
+        "paired_cells": 22500,
+        "total_cells": 22500,
+        "median_delta_hh_hv_db": [
+          6.427231788635254,
+          1.4188756942749023
+        ],
+        "visible_flag_cells": 19479,
+        "visible_flag_fraction": 0.8657333333333334,
+        "flag_scope": "Nonzero alpha in the original saved overlay; lower bound, not the complete detector mask"
+      },
+      "images": {
+        "radar_before": "/matched/bright-surface-radar_before.png",
+        "radar_after": "/matched/bright-surface-radar_after.png",
+        "overlay": "/matched/bright-surface-overlay.png",
+        "before_natural": "/matched/bright-surface-before-natural.png",
+        "before_false_color": "/matched/bright-surface-before-false_color.png",
+        "after_natural": "/matched/bright-surface-after-natural.png",
+        "after_false_color": "/matched/bright-surface-after-false_color.png"
+      },
+      "optical": {
+        "before": {
+          "total_cells": 10000,
+          "usable_cells": 10000,
+          "usable_fraction": 1.0,
+          "mndwi_usable_cells": 10000,
+          "median_mndwi": 0.6082747630401901,
+          "water_like_cells": 9456,
+          "water_like_fraction": 0.9456,
+          "source_water_flag_cells": 0,
+          "source_water_flag_fraction": 0.0,
+          "transform": [
+            30.0,
+            0.0,
+            553995.0,
+            0.0,
+            -30.0,
+            4792005.0
+          ]
+        },
+        "after": {
+          "total_cells": 10000,
+          "usable_cells": 10000,
+          "usable_fraction": 1.0,
+          "mndwi_usable_cells": 10000,
+          "median_mndwi": 0.39341227028657466,
+          "water_like_cells": 9717,
+          "water_like_fraction": 0.9717,
+          "source_water_flag_cells": 0,
+          "source_water_flag_fraction": 0.0,
+          "transform": [
+            30.0,
+            0.0,
+            553995.0,
+            0.0,
+            -30.0,
+            4792005.0
+          ]
+        }
+      },
+      "source_crops": {
+        "before": "/matched-source/bright-surface-before.tif",
+        "after": "/matched-source/bright-surface-after.tif"
+      }
+    },
+    {
+      "id": "quality-blocked",
+      "title": "The reference cannot answer",
+      "outcome": "unresolved",
+      "badge": "Optical quality prevents assessment",
+      "bounds_wsen": [
+        545000,
+        4804000,
+        548000,
+        4807000
+      ],
+      "observation": "The saved radar overlay flags much of this crop, but the September Landsat quality mask excludes most of the optical cells. Grey pixels show excluded reference data, not unchanged terrain.",
+      "conclusion": "There is insufficient usable optical coverage to label this alert changed or unchanged. It remains unresolved and is excluded from any correctness count.",
+      "next_check": "Choose another cloud-free optical acquisition or independent radar date before assigning a reference label.",
+      "sample_pixel_box": [
+        255,
+        1388,
+        405,
+        1538
+      ],
+      "viewport_box": [
+        0.04298718813216453,
+        0.380065717415115,
+        0.06827376938637895,
+        0.42113910186199344
+      ],
+      "center_lon_lat": [
+        57.574241,
+        43.400938
+      ],
+      "area_km2": 9.0,
+      "radar": {
+        "paired_cells": 22500,
+        "total_cells": 22500,
+        "median_delta_hh_hv_db": [
+          5.4284257888793945,
+          0.9351682662963867
+        ],
+        "visible_flag_cells": 16199,
+        "visible_flag_fraction": 0.7199555555555556,
+        "flag_scope": "Nonzero alpha in the original saved overlay; lower bound, not the complete detector mask"
+      },
+      "images": {
+        "radar_before": "/matched/quality-blocked-radar_before.png",
+        "radar_after": "/matched/quality-blocked-radar_after.png",
+        "overlay": "/matched/quality-blocked-overlay.png",
+        "before_natural": "/matched/quality-blocked-before-natural.png",
+        "before_false_color": "/matched/quality-blocked-before-false_color.png",
+        "after_natural": "/matched/quality-blocked-after-natural.png",
+        "after_false_color": "/matched/quality-blocked-after-false_color.png"
+      },
+      "optical": {
+        "before": {
+          "total_cells": 10000,
+          "usable_cells": 10000,
+          "usable_fraction": 1.0,
+          "mndwi_usable_cells": 10000,
+          "median_mndwi": 0.6670481845035736,
+          "water_like_cells": 9958,
+          "water_like_fraction": 0.9958,
+          "source_water_flag_cells": 0,
+          "source_water_flag_fraction": 0.0,
+          "transform": [
+            30.0,
+            0.0,
+            544995.0,
+            0.0,
+            -30.0,
+            4807005.0
+          ]
+        },
+        "after": {
+          "total_cells": 10000,
+          "usable_cells": 791,
+          "usable_fraction": 0.0791,
+          "mndwi_usable_cells": 791,
+          "median_mndwi": 0.6689594430231095,
+          "water_like_cells": 788,
+          "water_like_fraction": 0.9962073324905183,
+          "source_water_flag_cells": 0,
+          "source_water_flag_fraction": 0.0,
+          "transform": [
+            30.0,
+            0.0,
+            544995.0,
+            0.0,
+            -30.0,
+            4807005.0
+          ]
+        }
+      },
+      "source_crops": {
+        "before": "/matched-source/quality-blocked-before.tif",
+        "after": "/matched-source/quality-blocked-after.tif"
+      }
+    }
+  ],
+  "artifact_sha256": {
+    "evaluation/karakalpakstan-pilot/sites.csv": "1fce9a32d461e5922efdc2d03aa5d7680030a3b81ebd1ec059e8be1ad77b0631",
+    "evaluation/karakalpakstan-pilot/source/after-item.json": "fd3553341a5508138862d31846950029bcbc64d3779792c9e271f685dcb43d36",
+    "evaluation/karakalpakstan-pilot/source/before-item.json": "53f37f46e5d9c81387d0f501e00c8da77c3675786340b375d059a81c385a6200",
+    "evaluation/karakalpakstan-pilot/source/bright-surface-after.tif": "b50467e9c66e3b8239285b760fe9b21966f5f7962d08834f1695484cedc8b24c",
+    "evaluation/karakalpakstan-pilot/source/bright-surface-before.tif": "c7247021e5b8518cfadc27d348d19e19d96c02408d6ee6bd4ca6d37f7d932eb6",
+    "evaluation/karakalpakstan-pilot/source/bright-surface-radar.npz": "31d16a20d1bdb812fc1d0fceef490430fcee59753f194fd4fd9301ad20256ff3",
+    "evaluation/karakalpakstan-pilot/source/contraction-after.tif": "044152d5af2765f9b8b7ad33d298f018f02025a0f6a70412c995fd562ab9df01",
+    "evaluation/karakalpakstan-pilot/source/contraction-before.tif": "ba52d13c546af7d741fb7b8522d457741b70ae9df9ad083d606da33288a0363c",
+    "evaluation/karakalpakstan-pilot/source/contraction-radar.npz": "fe80874545fd7e8420f3df90f9341f1b529da8c58a435426fbc4f1468feeef0e",
+    "evaluation/karakalpakstan-pilot/source/quality-blocked-after.tif": "dc7fb4273733ad11fabec5db5c4a99d6002688380289e491e6d904ed004666ac",
+    "evaluation/karakalpakstan-pilot/source/quality-blocked-before.tif": "20b73e823efe38513ba5c549ccf3364789d79985709aabcf3533bfaa2908cbb4",
+    "evaluation/karakalpakstan-pilot/source/quality-blocked-radar.npz": "afa4064d47a8a4774493bea1e893556049b5beb6d0c49bb9dacc90d851210a98",
+    "evaluation/karakalpakstan-pilot/source/reference-after.tif": "c2efaa83e6c693d29ff0e773266fca71eff128ae85aa99ea0e50a7dff94bc360",
+    "evaluation/karakalpakstan-pilot/source/reference-before.tif": "b867f6aa1cdc92ab9203173062936aa2b8a83a9d070ff1a691aff328dc632091",
+    "evaluation/karakalpakstan-pilot/source/reference-radar.npz": "76d3d8ec4220b10be1b7cfd5d85f93f340f66fccf03ce520cfec034bd476d33f",
+    "frontend/features/results/reference/matched/bright-surface-after-false_color.png": "2bbcf25696ce021daaf6eb7ea6057b7d5957d15063f4d490fe9466d058828794",
+    "frontend/features/results/reference/matched/bright-surface-after-natural.png": "2bac8bf67915856729ffe9b1780fbac47e7428c2aea23445b58b0ddb7fd8dfde",
+    "frontend/features/results/reference/matched/bright-surface-before-false_color.png": "3951a9ad830ddf28d00a25121882900d1643bf9363fd758f44820752e12d8440",
+    "frontend/features/results/reference/matched/bright-surface-before-natural.png": "55b3ce06fd3416e2c88a53adf7f5eeabb73da886eaf1587819a6c25ec7a137c5",
+    "frontend/features/results/reference/matched/bright-surface-overlay.png": "51bd9eb3921b9e0471fc4741f354a700b58ae574dde4d5f1e986ec86634d1ff2",
+    "frontend/features/results/reference/matched/bright-surface-radar_after.png": "4621e48dc08dd6ff5d4064e33cf3ea8bab6ffb5ea53ea7be9bd018bce26db615",
+    "frontend/features/results/reference/matched/bright-surface-radar_before.png": "7c8b61f8baae482b8fe2ac060aecf37f5952c1a963e4304689b52c85f5ddac08",
+    "frontend/features/results/reference/matched/contraction-after-false_color.png": "be859b6b2cc32d933adcd4e0484c5d1d3db4326bf496a7917f3234e5ce8f59f4",
+    "frontend/features/results/reference/matched/contraction-after-natural.png": "abeb689e4e4e35e9f0e7ac96d5161b66eb70765ee4630d2a3e3d04b61387a543",
+    "frontend/features/results/reference/matched/contraction-before-false_color.png": "2e65903b2c9cf9605719933a7d3a74dbfdae1d94c64120381b3d485580c96266",
+    "frontend/features/results/reference/matched/contraction-before-natural.png": "8f9aa749e92369ebbe015715a4892c7f9fd529a9e70ea931876577a49aeec8a0",
+    "frontend/features/results/reference/matched/contraction-overlay.png": "ffcfa2e212bec9fe838c87337cb9fded82b1ff32551d46c7b70e8af658b25703",
+    "frontend/features/results/reference/matched/contraction-radar_after.png": "a9eeada00db46b009c59e344c2b27855ffbb3aabe4030857109ebbc4936f652b",
+    "frontend/features/results/reference/matched/contraction-radar_before.png": "2af079a10db0738f67b03ce57035f0898a372c14dc6cd636ae00bcda57af8d63",
+    "frontend/features/results/reference/matched/quality-blocked-after-false_color.png": "4d10fe93f6d2b703589a224b87f1630dc53f5d6ed04828102144ef38750c580a",
+    "frontend/features/results/reference/matched/quality-blocked-after-natural.png": "e5961b3042aa6b10ed57f1b6952d59afbfebc5f9a6c80aaa99679c00bd59fe87",
+    "frontend/features/results/reference/matched/quality-blocked-before-false_color.png": "9a9e1cca3e96d549550e4f44cfef6191edb044b66127d8bee8a3204129f2b139",
+    "frontend/features/results/reference/matched/quality-blocked-before-natural.png": "e81a1c92184c1ef95df4143930b777833dc37029f34d555d05537ffbe590e003",
+    "frontend/features/results/reference/matched/quality-blocked-overlay.png": "c90dfa425e3df2092b743ca24f3030436b3cc2b44921e2bf5c909e5f19a7a175",
+    "frontend/features/results/reference/matched/quality-blocked-radar_after.png": "cb976b8785ef4e03bae9f26a6bece67857aedbef867ec5c7e92982c0d644a9f7",
+    "frontend/features/results/reference/matched/quality-blocked-radar_before.png": "420524469a555a05b46ec51268adbb2044a6a636e5ca3842bc6313c37b09b7d4",
+    "frontend/features/results/reference/matched/reference-after-false_color.png": "71c47d47ddc7efee38fe8522a0052fa3cabf346dd98c4294d16a1d423f5e3e51",
+    "frontend/features/results/reference/matched/reference-after-natural.png": "c90a168306c6249c067103838ed6105330f2ee763081174b558db3d56d10f71a",
+    "frontend/features/results/reference/matched/reference-before-false_color.png": "84fddc2ec0e07f2fd8a7d104e6cf4d7fd449427bfed9bc3ca00f19cfce740f72",
+    "frontend/features/results/reference/matched/reference-before-natural.png": "73f42dadd59aa88c4b45c90c433f7e959d08e3f026f03d64c9a137ff171ce38a",
+    "frontend/features/results/reference/matched/reference-overlay.png": "f15473927edaa2df908f5e590230d385368d8b0d82af244192f4b1b0ce1190cd",
+    "frontend/features/results/reference/matched/reference-radar_after.png": "c8da5db3ab8d5096146be75d62508d347168b2003798d236526b38d4858085ad",
+    "frontend/features/results/reference/matched/reference-radar_before.png": "2937522f90477fa67f20879d38d519e1d9d405cf4f407b6745b16730463f37de"
+  }
+}

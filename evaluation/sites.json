@@ -1,0 +1,43 @@
+[
+  {
+    "id": "contraction",
+    "title": "A water-like surface contracts",
+    "outcome": "optical_support",
+    "badge": "Optical support for surface change",
+    "bounds_wsen": [626000, 4807000, 629000, 4810000],
+    "focus_point_en": [626940, 4808910],
+    "observation": "The dark, water-like surface west of the visible boundary in June is largely replaced by a bright surface in September. The boundary is visible in both optical images and lies in a radar-flagged location.",
+    "conclusion": "The independent optical pair supports a local contraction of water-like cover near the radar dates. It supports investigating this alert; it does not validate every flagged cell or identify the cause.",
+    "next_check": "Review the shoreline at native optical resolution and obtain another date or local observations before estimating a confirmed water-loss area."
+  },
+  {
+    "id": "reference",
+    "title": "A quiet comparison area",
+    "outcome": "comparison",
+    "badge": "No obvious optical surface change",
+    "bounds_wsen": [596000, 4768000, 599000, 4771000],
+    "observation": "The same bright terrain and linear features remain visible in both optical images. No obvious water boundary appears. The saved overlay has no visible flags here, and the local median HH difference is small.",
+    "conclusion": "This is a useful comparison at 30 m optical resolution. It is not proof that nothing changed: smaller changes and changes in moisture or surface properties can remain invisible.",
+    "next_check": "Use this location to inspect alignment and display consistency. A larger evaluation must also sample unflagged locations where independent change is present."
+  },
+  {
+    "id": "bright-surface",
+    "title": "A water-loss interpretation fails",
+    "outcome": "interpretation_failure",
+    "badge": "Radar alert; water-loss claim unsupported",
+    "bounds_wsen": [554000, 4789000, 557000, 4792000],
+    "observation": "The radar return changes strongly and much of the crop has visible flags. Both optical dates show a bright surface. A simple water index is positive, but the source water flag is absent at both dates; the index alone is not a reliable water label here.",
+    "conclusion": "Calling these blue radar flags water loss would be unsupported. This is a failure of that environmental interpretation, not a proven false positive for a generic radar-change detector. The surface material and cause remain unresolved.",
+    "next_check": "Seek independent land-cover information and additional dates. Do not use a spectral index alone as ground truth on bright surfaces."
+  },
+  {
+    "id": "quality-blocked",
+    "title": "The reference cannot answer",
+    "outcome": "unresolved",
+    "badge": "Optical quality prevents assessment",
+    "bounds_wsen": [545000, 4804000, 548000, 4807000],
+    "observation": "The saved radar overlay flags much of this crop, but the September Landsat quality mask excludes most of the optical cells. Grey pixels show excluded reference data, not unchanged terrain.",
+    "conclusion": "There is insufficient usable optical coverage to label this alert changed or unchanged. It remains unresolved and is excluded from any correctness count.",
+    "next_check": "Choose another cloud-free optical acquisition or independent radar date before assigning a reference label."
+  }
+]

@@ -12,8 +12,8 @@
     "Reference dates differ from the radar dates. Seasonal changes can occur within these gaps.",
     "The reference maps have different extents and are not aligned to the SAR grid. Their blue areas are the publisher's water classification, not this app's change mask."
   ],
-  "optical_verification_status": "Location-level comparison not completed",
-  "next_check": "Locate the same flagged and unflagged sites in optical images near both radar dates; assess clouds, boundary alignment, and water gain or loss before labeling detections.",
+  "optical_verification_status": "Four selected locations have exploratory optical checks; full detector validation is not completed",
+  "next_check": "See the separate location-matched Landsat pilot. It uses different, closer reference acquisitions than these regional maps. Expand to independently reviewed, systematically sampled labels before estimating detection accuracy or confirmed changed area.",
   "observations": [
     {"date": "2026-06-27", "open_water_ha": 6228, "source_id": "sic-icwc-september-2026", "source_locator": "Table 3, Sudoche row, PDF page 5; also June report Table 2, PDF page 3"},
     {"date": "2026-08-30", "open_water_ha": 3245, "source_id": "sic-icwc-september-2026", "source_locator": "Table 3, Sudoche row, PDF page 5"},

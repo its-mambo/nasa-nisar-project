@@ -125,6 +125,35 @@ def render_export(result,format="md"):
     valid,flags = result.get("valid_pixels"),result.get("changed_pixels")
     if grid>0 and finite(valid) and finite(flags):
         paragraph(f"Model-grid composition: {flags:,} flagged; {valid-flags:,} valid without flags; {grid-valid:,} without paired model data. Unflagged is not confirmed stable.")
+    pilot = report.get("matched_evidence")
+    if pilot:
+        heading(pilot["title"] + " · location-matched optical pilot")
+        paragraph(pilot["summary"])
+        paragraph(pilot["scope"])
+        paragraph("Review status: " + pilot["review_status"])
+        paragraph("Selection: " + pilot["selection"])
+        for source in pilot["sources"]:
+            paragraph(f"{source['sensor']}: {source['date']}, {source['offset_days']:+d} days relative to radar {source['radar_date']}; 30 m reference cells. Item: {source['id']}.")
+            paragraph("Source metadata: " + source["url"])
+        for site in pilot["sites"]:
+            heading(site["title"], 3)
+            paragraph(site["badge"] + ". " + site["observation"])
+            paragraph(site["conclusion"])
+            paragraph(f"EPSG:{pilot['epsg']} west/south/east/north: {site['bounds_wsen']} m; centre longitude/latitude: {site['center_lon_lat']}; square area {site['area_km2']} km².")
+            point = site.get("comparison_point")
+            if point:
+                paragraph(f"The same crosshair point is marked in both reference images: {point['easting_m']} E, {point['northing_m']} N, EPSG:{pilot['epsg']}. The source QA water flag is present before and absent after at this point; this is supporting algorithmic evidence, not ground truth.")
+            delta = site["radar"]["median_delta_hh_hv_db"]
+            paragraph(f"Local paired After − Before HH/HV medians: {delta[0]:+.2f}/{delta[1]:+.2f} dB across all {site['radar']['paired_cells']:,} paired radar cells. Visible saved flags: {site['radar']['visible_flag_fraction']:.1%}; this is a lower bound, not a complete mask count.")
+            for label in ("before", "after"):
+                optical = site["optical"][label]
+                paragraph(f"{label.title()} optical quality: {optical['usable_cells']:,}/{optical['total_cells']:,} native 30 m cells usable ({optical['usable_fraction']:.1%}). Median MNDWI: {optical['median_mndwi']}; index above 0.15: {optical['water_like_fraction']:.1%}; source QA water flag: {optical['source_water_flag_fraction']:.1%}. These are diagnostics, not ground truth.")
+            paragraph("Next check: " + site["next_check"])
+        for limitation in pilot["limitations"]:
+            paragraph("Pilot limitation: " + limitation)
+        paragraph("Quality method: " + pilot["methods"]["quality"])
+        paragraph("Optical diagnostics: " + pilot["methods"]["mndwi"] + ". " + pilot["methods"]["water_like_note"])
+        paragraph("Full source crop checksums, methods and measurements: /matched-source/manifest.json (served by this app; also evaluation/karakalpakstan-pilot/manifest.json in the repository).")
     for context in report.get("external_context") or []:
         heading(context["title"] + " · external regional context")
         paragraph(context["summary"])
@@ -142,7 +171,7 @@ def render_export(result,format="md"):
             paragraph(f"Reference image: {source['sensor']}; observation {source['observation_date']}; {source['figure']}.")
             paragraph("Source PDF SHA-256: " + source["sha256"] + "; extracted reference image SHA-256: " + source["image_sha256"])
     paragraph(report["caution"])
-    heading("Next checks · recommended sources, not consulted")
+    heading("Next checks · further independent verification" if pilot else "Next checks · recommended sources, not consulted")
     for check in report["checks"]:
         paragraph(check["source"]+": "+check["compare"])
         paragraph("Would support: "+check["supports"])

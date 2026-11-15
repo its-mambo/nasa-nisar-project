@@ -77,6 +77,10 @@
     if (!report) return;
     const byId=id=>document.getElementById(id);
     NisarExternalContext.render(byId("reportExternalContext"),data,{compact:true});
+    NisarMatchedEvidence.render(byId("reportMatchedEvidence"),data,{compact:true});
+    byId("reportChecksNote").textContent = report.matched_evidence
+      ? "Four selected locations have exploratory optical checks above. Independent labels and a systematic accuracy evaluation are still needed."
+      : "Suggested location-level comparisons have not been completed. Reviewed regional sources are shown separately above.";
     const catalog=new Map(report.evidence.map(item=>[item.id,item]));
     byId("reportFindingTitle").textContent=report.finding.text;
     byId("reportFindingNote").textContent=`Detector output · threshold ${data.threshold ?? "not recorded"}. ${report.caution}`;

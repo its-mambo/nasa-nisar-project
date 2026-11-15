@@ -1,0 +1,6 @@
+# Only needed to rebuild or audit the matched optical pilot, not for playback.
+numpy
+h5py
+Pillow
+rasterio
+pyproj

@@ -53,7 +53,7 @@ class RegionalContextTests(unittest.TestCase):
             text = render_export(result, format)
             for phrase in ("62.28 km²", "32.45 km²", "22.42 km²", "6 days after Before",
                            "14 days before After", "10 days after After", "Table 3", "Source PDF SHA-256",
-                           "Location-level comparison not completed", "do not validate individual flags"):
+                           "Four selected locations", "do not validate individual flags"):
                 self.assertIn(phrase.lower(), text.lower())
             self.assertNotIn("No external web sources were retrieved", text)
             self.assertNotIn("No external sources were consulted", text)

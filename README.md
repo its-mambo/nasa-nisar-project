@@ -2,6 +2,16 @@
 
 Compare two NISAR L2 GCOV acquisitions over the same area. The app aligns the paired HH/HV imagery, runs a learned change detector on overlapping tiles, and reports where it flagged a change in radar backscatter.
 
+Read the [project overview](docs/PROJECT_OVERVIEW.md) and
+[detector evidence and limitations](docs/MODEL_CARD.md). The prototype supports
+investigation; its detector flags have not been independently validated as
+environmental change.
+
+The saved case now includes [four location-matched optical checks](evaluation/README.md)
+with nearby Landsat dates, original source crops, local radar measurements and
+explicit interpretation failures. This exploratory pilot does not establish
+detector accuracy.
+
 ## Explore the saved sample (start here)
 
 Use **Python 3.11 or newer**. Clone or download the complete repository, including
