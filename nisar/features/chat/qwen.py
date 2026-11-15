@@ -96,7 +96,15 @@ class QwenChat:
                     shutil.copyfile(self.assets / name, root / name)
             # Transformers expects model.safetensors next to config.json. Pass the
             # actual file directly to the loader via a link, with no multi-GB copy.
-            (root / "model.safetensors").symlink_to(self.weights.resolve(strict=True))
+            source = self.weights.resolve(strict=True)
+            target = root / "model.safetensors"
+            try:
+                target.symlink_to(source)
+            except OSError:
+                try:
+                    os.link(source, target)           
+                except OSError:
+                    shutil.copyfile(source, target)    
             processor = AutoProcessor.from_pretrained(root, local_files_only=True)
             model = Qwen3VLForConditionalGeneration.from_pretrained(
                 root, dtype=dtype, local_files_only=True, use_safetensors=True,
