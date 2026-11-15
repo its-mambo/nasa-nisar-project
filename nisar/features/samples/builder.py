@@ -21,7 +21,7 @@ def activate_bundle(staging, destination, sample):
     files = {name: digest(staging / name) for name in (*NAMES, "sample-preview.png", "result.json")}
     revision = "sample-" + hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()[:16]
     manifest = dict(format=FORMAT, revision=revision, sample=sample, files=files)
-    (staging / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+    (staging / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n")
     final = destination / revision
     if final.exists():
         for name, checksum in files.items():
@@ -30,7 +30,7 @@ def activate_bundle(staging, destination, sample):
     else:
         staging.rename(final)
     pointer = destination / ".current.json.tmp"
-    pointer.write_text(json.dumps({"revision": revision}) + "\n")
+    pointer.write_text(json.dumps({"revision": revision}) + "\n", encoding="utf-8", newline="\n")
     pointer.replace(destination / "current.json")
     return CachedSample(destination)
 
@@ -41,7 +41,7 @@ def refresh_report(destination):
     original = load_sample(destination)
     if original is None:
         raise ValueError("Generate a sample before refreshing its report.")
-    result = json.loads((original.directory / "result.json").read_text())
+    result = json.loads((original.directory / "result.json").read_text(encoding="utf-8"))
     result = detector_result(result)
     metadata = {k: v for k, v in original.metadata.items()
                 if k not in ("interpretation_source", "report_presentation")}
@@ -54,7 +54,7 @@ def refresh_report(destination):
                 os.link(original.directory / name, staging / name)
             except OSError:
                 shutil.copyfile(original.directory / name, staging / name)
-        (staging / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
+        (staging / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8", newline="\n")
         return activate_bundle(staging, destination, metadata)
 
 
@@ -64,7 +64,7 @@ def publish(export, source_dir, destination):
     from nisar.features.imagery.gcov import metadata
 
     export, source_dir, destination = map(Path, (export, source_dir, destination))
-    result = json.loads((export / "report.json").read_text())
+    result = json.loads((export / "report.json").read_text(encoding="utf-8"))
     if result["roi"]["t0_pixel_box"] != ROI or result["threshold"] != THRESHOLD:
         raise ValueError("Export must use the fixed sample ROI and threshold 0.10.")
     result = detector_result(result)
@@ -95,7 +95,7 @@ def publish(export, source_dir, destination):
         with Image.open(export / "t0.png") as preview:
             preview.thumbnail((1200, 800))
             preview.save(staging / "sample-preview.png")
-        (staging / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False))
+        (staging / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8", newline="\n")
         return activate_bundle(staging, destination, sample)
 
 

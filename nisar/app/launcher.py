@@ -71,7 +71,7 @@ def main():
     try:
         sample = load_sample(args.cache_dir)
         if sample is None:
-            raise ValueError("No saved analysis found. Run python cache_sample.py on a model-capable machine first.")
+            raise ValueError("The bundled saved analysis is missing. Use a complete repository checkout including samples/judges, or check --cache-dir. No model run is needed for the included sample.")
     except (OSError, ValueError, KeyError) as exc:
         parser.exit(2, f"Cannot open saved sample: {exc}\n")
     import uvicorn

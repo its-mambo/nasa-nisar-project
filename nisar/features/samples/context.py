@@ -13,7 +13,7 @@ def regional_context(result):
             or roi.get("t0_pixel_box") != [5323, 2414, 11255, 6066]
             or stamps != ["2026-06-21", "2026-09-13"]):
         return []
-    record = json.loads(Path(__file__).with_name("karakalpakstan_context.json").read_text())
+    record = json.loads(Path(__file__).with_name("karakalpakstan_context.json").read_text(encoding="utf-8"))
     radar_dates = [date.fromisoformat(stamp) for stamp in stamps]
     for row in [*record["observations"], *record["sources"]]:
         observed = date.fromisoformat(row.get("date") or row["observation_date"])

@@ -426,7 +426,12 @@ updateSelection();
       else showUpload(true);
     }
     if (!runId && location.hash !== "#results" && config.sample?.available) NisarSample.show();
-  } catch (err) { status("Could not load the current pair: "+err.message); }
+  } catch (err) {
+    const message = "Could not load the app setup: " + err.message;
+    NisarSample.unavailable(message + " Check that this page is served by python launch.py, then reload.");
+    NisarSample.show();
+    status(message);
+  }
   finally { setBusy(false); }
 })();
 

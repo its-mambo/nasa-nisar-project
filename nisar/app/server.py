@@ -41,7 +41,7 @@ def call_locked(demo, func):
         return error(500, f"{type(exc).__name__}: {exc}")
 
 
-def create_app(demo, root: Path, names, *, sample=None, model_enabled=True, chat=None, chat_unavailable=None):
+def create_app(demo, root: Path, names, *, sample=None, sample_unavailable=None, model_enabled=True, chat=None, chat_unavailable=None):
     app = FastAPI(title="NISAR SAR Change Explorer")
     image_names = set(names)
     # Progress has its own lock: inference holds demo.lock while using the models.
@@ -90,7 +90,10 @@ def create_app(demo, root: Path, names, *, sample=None, model_enabled=True, chat
     @app.get("/sample")
     def sample_info():
         return {"model_enabled": model_enabled,
-                "sample": sample.describe() if sample else {"available": False}}
+                "sample": sample.describe() if sample else {
+                    "available": False,
+                    "error": sample_unavailable or "The saved analysis bundle is missing from this server.",
+                }}
 
     def saved_revision(v):
         return sample is not None and v == sample.revision

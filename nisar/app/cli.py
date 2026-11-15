@@ -82,13 +82,16 @@ def main():
         import uvicorn
         from nisar.app.server import create_app
         from nisar.features.samples.store import load_sample
+        sample_unavailable = None
         try:
             sample = load_sample(args.sample_dir)
         except (OSError, ValueError, KeyError) as exc:
             print(f"Saved sample unavailable: {exc}", flush=True)
             sample = None
+            sample_unavailable = f"The saved analysis could not be loaded: {exc}"
         chat, unavailable = configure_chat(args, default_device=sar_device)
-        app = create_app(demo, FRONTEND_ROOT, NAMES, sample=sample, chat=chat, chat_unavailable=unavailable)
+        app = create_app(demo, FRONTEND_ROOT, NAMES, sample=sample, sample_unavailable=sample_unavailable,
+                         chat=chat, chat_unavailable=unavailable)
         print(f"Open http://{args.host}:{args.port} · Temporary uploads: {folder}",flush=True)
         uvicorn.run(app,host=args.host,port=args.port,workers=1)
 

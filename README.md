@@ -2,6 +2,40 @@
 
 Compare two NISAR L2 GCOV acquisitions over the same area. The app aligns the paired HH/HV imagery, runs a learned change detector on overlapping tiles, and reports where it flagged a change in radar backscatter.
 
+## Explore the saved sample (start here)
+
+Use **Python 3.11 or newer**. Clone or download the complete repository, including
+`samples/judges`, then run these commands from its root:
+
+```bash
+python -m venv .venv
+```
+
+Activate the environment with `source .venv/bin/activate` on macOS/Linux, or
+`.venv\Scripts\Activate.ps1` in Windows PowerShell. Then:
+
+```bash
+python -m pip install -r requirements-sample.txt
+python launch.py --mode sample --no-chat
+```
+
+Open [the local app](http://127.0.0.1:8000) and select **Explore the case study →**.
+The Before/After images, detector overlay, measurements, and reports are bundled
+in Git. No GPU, checkpoint, source HDF5 files, or cache generation is needed.
+After installation, playback works offline. The lightweight install supplies
+only the web server; optional model and chat dependencies are separate.
+
+To verify a fresh install, run:
+
+```bash
+python -m unittest tests.samples.test_playback -v
+```
+
+This starts a temporary server, checks every saved PNG against its manifest,
+and checks the pages and report export using only the lightweight dependencies.
+See [sample details and troubleshooting](samples/README.md) if the dates or images
+are missing or the Explore button is disabled.
+
 ## Run with your detector
 
 Install the dependencies in your Python environment:
@@ -27,15 +61,6 @@ python inference.py --sar-device cuda:0 --t0 before.h5 --t1 after.h5 \
 ```
 
 Use `python inference.py --help` for device, tile batching, thresholds, and upload settings. Live mode is local by default. The detector file and source products are not included in the repository.
-
-## Explore the saved sample
-
-```bash
-python -m pip install -r requirements-sample.txt
-python launch.py --mode sample
-```
-
-This serves the saved analysis and its map without opening HDF5 products or loading the detector. See [sample details](samples/README.md) for the fixed ROI and cache workflow.
 
 ## Read the results
 

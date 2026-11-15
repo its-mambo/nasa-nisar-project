@@ -23,11 +23,11 @@ def digest(path):
 class CachedSample:
     def __init__(self, root):
         root = Path(root)
-        self.revision = json.loads((root / "current.json").read_text())["revision"]
+        self.revision = json.loads((root / "current.json").read_text(encoding="utf-8"))["revision"]
         if not isinstance(self.revision, str) or not REVISION.fullmatch(self.revision):
             raise ValueError("Invalid cached sample revision.")
         self.directory = root / self.revision
-        manifest = json.loads((self.directory / "manifest.json").read_text())
+        manifest = json.loads((self.directory / "manifest.json").read_text(encoding="utf-8"))
         if manifest.get("format") != FORMAT or manifest.get("revision") != self.revision:
             raise ValueError("Unsupported or mismatched sample manifest.")
         files = manifest["files"]
@@ -37,7 +37,7 @@ class CachedSample:
             if digest(self.directory / name) != checksum:
                 raise ValueError(f"Cached sample checksum mismatch: {name}")
         self.metadata = manifest["sample"]
-        self._result = json.loads((self.directory / "result.json").read_text())
+        self._result = json.loads((self.directory / "result.json").read_text(encoding="utf-8"))
         if (self._result["roi"]["t0_pixel_box"] != self.metadata["roi"]
                 or self._result["threshold"] != self.metadata["threshold"]):
             raise ValueError("Cached result does not match its sample settings.")

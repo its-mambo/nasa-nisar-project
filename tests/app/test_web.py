@@ -23,6 +23,14 @@ class AssetReferences(HTMLParser):
 
 
 class BrowserResourceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_sample_load_failure_reaches_the_browser(self):
+        cause = "The saved analysis could not be loaded: Cached sample checksum mismatch: result.json"
+        app = create_app(SimpleNamespace(), FRONTEND_ROOT, (), sample_unavailable=cause)
+        status, body = await request(app, "GET", "/sample")
+        self.assertEqual(status, 200)
+        import json
+        self.assertEqual(json.loads(body)["sample"], {"available": False, "error": cause})
+
     async def test_pages_and_all_referenced_assets_use_feature_files(self):
         app = create_app(SimpleNamespace(), FRONTEND_ROOT, ())
         references = set()

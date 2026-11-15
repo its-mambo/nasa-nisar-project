@@ -1,0 +1,3 @@
+# Sample manifests hash the exact artifact bytes. Windows must not rewrite JSON
+# line endings on checkout (or on add when generating a new bundle).
+samples/judges/** -text

@@ -9,6 +9,15 @@
       ? new Intl.DateTimeFormat("en-GB", {day:"numeric", month:"long", year:"numeric", timeZone:"UTC"}).format(date)
       : "Date not recorded";
   }
+  function unavailable(message) {
+    sample = null;
+    el("openSample").disabled = true;
+    el("samplePreview").hidden = true;
+    el("sampleBefore").textContent = el("sampleAfter").textContent = "Unavailable";
+    el("sampleT0").textContent = el("sampleT1").textContent = "Unavailable";
+    el("sampleStatus").textContent = message;
+    el("sampleModeNote").textContent = "The saved images are included in the repository. On the server, use a complete checkout including samples/judges and run python launch.py --mode sample to check the bundle. No detector weights or source HDF5 files are needed.";
+  }
   function configure(capabilities) {
     modelEnabled = capabilities.model_enabled;
     sample = capabilities.sample;
@@ -20,8 +29,7 @@
     const available = !!sample?.available;
     el("openSample").disabled = !available;
     if (!available) {
-      el("sampleT0").textContent = "No saved analysis has been installed on this server.";
-      el("sampleStatus").textContent = "The project maintainer can generate it once with python cache_sample.py.";
+      unavailable(sample?.error || "The saved analysis is unavailable on this server.");
       return;
     }
     el("sampleT0").textContent = sample.sources.t0.name;
@@ -71,5 +79,5 @@
       el("sampleStatus").textContent = error.message;
     } finally { el("openSample").disabled = false; }
   });
-  window.NisarSample = {configure, show, hide};
+  window.NisarSample = {configure, show, hide, unavailable};
 })();
