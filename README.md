@@ -13,6 +13,13 @@ explicit interpretation failures. This exploratory pilot does not establish
 detector accuracy.
 
 ## Explore the saved sample (start here)
+For correct work of the application, first donwload two models' weights:
+**detector.safetensorshttps**(custom pretrained seg-model): https://huggingface.co/EscRq1/nisar-seg-vith
+**models.safetensors**(Qwen-VL 2B): https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct
+
+Put both **.safetensors** files directly into **/models** folder.
+**Optional:** if you want to test manual change detection, either download a pair of .h5 files from ASF Vertex on different dates, or download prepared pair:
+https://huggingface.co/datasets/EscRq1/netherlands-nisar-pair
 
 Use **Python 3.11 or newer**. Clone or download the complete repository, including
 `samples/judges`, then run these commands from its root:
