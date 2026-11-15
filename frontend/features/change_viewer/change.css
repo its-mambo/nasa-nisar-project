@@ -19,9 +19,7 @@
   --link-on-dark: #9cceff;
 
   --nav-h: 68px;
-  --head-h: 205px;          /* nav + intro: top of the change area in the design */
   --inset: 18.75px;         /* control offset from the change area edge */
-  --zoom-w: 52.5px;
 
   color-scheme: light;
   font-family: Inter, system-ui, sans-serif;
@@ -64,16 +62,17 @@ button { border: 0; background: none; padding: 0; cursor: pointer; }
 .tabs .active { color: var(--brand); font-weight: 600; border-bottom-color: var(--brand); }
 
 /* ---------- Intro ---------- */
-.page { padding: 0 24px 24px; }
-.intro { display: flex; flex-direction: column; gap: 10px; padding: 37px 8px 0; height: calc(var(--head-h) - var(--nav-h)); }
+.page { display: flex; flex-direction: column; min-height: calc(100dvh - var(--nav-h)); padding: 0 24px 24px; }
+.intro { display: flex; flex-direction: column; gap: 10px; padding: 37px 8px 24px; flex: none; }
 .intro h1 { margin: 0; font-size: 38px; font-weight: 700; line-height: normal; color: var(--heading); }
-.intro p { margin: 0; font-size: 16px; color: var(--muted); }
+.intro p { margin: 0; font-size: 16px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
 
 /* ---------- Change area ---------- */
 .change {
   --split: 50%;
   position: relative;
-  height: max(480px, calc(100dvh - var(--head-h) - 24px));
+  display: flex; flex-direction: column; gap: 16px;
+  flex: 1; min-height: 480px; padding: var(--inset);
   background: var(--change-bg);
   border: 1.25px solid var(--change-border);
   border-radius: 20px;
@@ -93,7 +92,7 @@ button { border: 0; background: none; padding: 0; cursor: pointer; }
   background: var(--fs-bg);
   border: 0;
   border-radius: 0;
-  height: 100%;
+  width: 100%; height: 100%; min-height: 0;
 }
 .change.fs-fallback { position: fixed; inset: 0; z-index: 1000; width: 100%; height: 100dvh; }
 .change::backdrop { background: var(--fs-bg); }
@@ -115,25 +114,32 @@ button { border: 0; background: none; padding: 0; cursor: pointer; }
 
 /* Pills */
 .pill {
-  position: absolute; top: calc(var(--inset) + 70px);
+  min-width: 0; max-width: 100%; align-self: flex-start;
   display: flex; align-items: center; gap: 8.75px;
   padding: 7.5px 15px 7.5px 12.5px;
   border-radius: 9999px; background: var(--pill-bg);
   color: #fff; font-size: 15px; font-weight: 600; white-space: nowrap;
   pointer-events: none;
 }
-.pill-before { right: calc(100% - var(--split) + 12px); }
-.pill-after { left: calc(var(--split) + 12px); }
+.pill img { flex: none; }
+.pill span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .change[data-mode="t0"] .pill-after, .change[data-mode="t1"] .pill-before { display: none; }
-.change:is([data-mode="t0"], [data-mode="t1"]) .pill {
-  left: calc(var(--inset) + var(--zoom-w) + 12px); right: auto; top: calc(var(--inset) + 77.5px);
-}
 
 /* Floating controls */
-.ctl-row { position: absolute; top: var(--inset); display: flex; align-items: center; }
-.ctl-top-left { left: var(--inset); right: var(--inset); gap: 10px; flex-wrap: wrap; padding-right: 300px; pointer-events: none; }
-.ctl-top-left > * { pointer-events: auto; }
-.ctl-top-right { right: var(--inset); gap: 8px; }
+/* Controls stay above the image, with content-sized rows at every width. */
+.viewer-toolbar, .viewer-context, .viewer-footer {
+  position: relative; display: flex; gap: 12px; pointer-events: none;
+}
+.viewer-toolbar { flex-wrap: wrap; align-items: flex-start; justify-content: space-between; }
+.ctl-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-width: 0; }
+.ctl-row > *, .zoom { pointer-events: auto; }
+.ctl-top-left { flex: 1 1 650px; }
+.ctl-top-right { margin-left: auto; gap: 8px; }
+.viewer-context { align-items: flex-start; }
+.date-labels { display: flex; justify-content: space-between; gap: 12px; flex: 1; min-width: 0; }
+.date-labels .pill { max-width: calc((100% - 12px) / 2); }
+.change:is([data-mode="t0"], [data-mode="t1"]) .pill { max-width: 100%; }
+.viewer-footer { margin-top: auto; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
 
 .view-switch {
   display: flex; gap: 2.5px; padding: 5px;
@@ -164,8 +170,7 @@ button { border: 0; background: none; padding: 0; cursor: pointer; }
 .overlay-toggle:disabled { opacity: .55; cursor: default; }
 
 .zoom {
-  position: absolute; left: var(--inset); top: calc(var(--inset) + 77.5px);
-  display: flex; flex-direction: column; padding: 5px 0;
+  display: flex; flex: none; flex-direction: column; padding: 5px 0;
   background: var(--surface); border-radius: 10px;
 }
 .zoom button { padding: 12.5px 13.75px; }
@@ -184,21 +189,21 @@ button { border: 0; background: none; padding: 0; cursor: pointer; }
 .btn-white:hover { background: #eef2f6; }
 
 .legend {
-  position: absolute; left: var(--inset); bottom: var(--inset);
+  max-width: 100%;
   display: flex; flex-direction: column; gap: 10px;
   padding: 12px 16px 12px 14px; border-radius: 8px;
   background: var(--surface); font-size: 14px; font-weight: 500; color: var(--ink);
 }
-.legend div { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.legend div { display: flex; align-items: center; gap: 10px; }
+.legend img { flex: none; }
 .legend .legend-note { font-size: 11px; font-weight: 400; white-space: normal; max-width: 300px; }
 
 .hint {
-  position: absolute; right: var(--inset); bottom: var(--inset);
   padding: 8px 12px; border-radius: 8px;
-  background: var(--surface); color: var(--hint); font-size: 13px; white-space: nowrap;
+  background: var(--surface); color: var(--hint); font-size: 13px;
 }
 .esc-hint {
-  position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%);
+  align-self: center;
   color: rgba(255, 255, 255, .8); font-size: 13px; pointer-events: none;
 }
 
@@ -214,30 +219,22 @@ button { border: 0; background: none; padding: 0; cursor: pointer; }
 /* ---------- Adaptive ---------- */
 @media (max-width: 1150px) {
   .chip { display: none; }
-  .ctl-top-left { padding-right: 160px; }
-  .zoom { top: calc(var(--inset) + 125px); }
-  .pill { top: calc(var(--inset) + 125px); font-size: 12px; }
+  .pill { font-size: 12px; }
 }
 @media (max-width: 759px) {
+  .change { --inset: 12px; gap: 12px; }
   .hint, .chip { display: none; }
-  .nav { padding-left: 16px; }
-  .brand { font-size: 18px; }
-  .nav-divider { margin: 0 12px; }
-  .tabs { gap: 12px; }
-  .tabs > * { font-size: 15px; }
   .page { padding: 0 12px 12px; }
+  .intro { padding: 24px 0; }
   .intro h1 { font-size: 30px; }
-  .ctl-row { flex-wrap: wrap; }
   .view-switch button { padding: 9px 12px; font-size: 16px; }
-  .ctl-top-left { padding-right: 44px; gap: 8px; }
+  .ctl-top-left { gap: 8px; }
   .overlay-toggle { padding: 8px 10px; gap: 8px; font-size: 13px; }
   .switch { width: 36px; height: 22px; }
   .knob { width: 16px; height: 16px; }
   .overlay-toggle[aria-checked="true"] .knob { transform: translateX(14px); }
-  .pill { top: calc(var(--inset) + 155px); max-width: calc(50% - 16px); overflow: hidden; text-overflow: ellipsis; padding: 6px 8px; font-size: 11px; }
-  .pill span { overflow: hidden; text-overflow: ellipsis; }
-  .zoom { top: calc(var(--inset) + 195px); }
-  .change:is([data-mode="t0"], [data-mode="t1"]) .pill { top: calc(var(--inset) + 155px); left: var(--inset); max-width: calc(100% - 36px); }
-  .legend { max-width: calc(100% - 36px); font-size: 12px; }
+  .date-labels { flex-wrap: wrap; gap: 8px; }
+  .date-labels .pill { max-width: 100%; padding: 6px 8px; font-size: 11px; }
+  .legend { font-size: 12px; }
   #fullscreenText { display: none; }
 }
