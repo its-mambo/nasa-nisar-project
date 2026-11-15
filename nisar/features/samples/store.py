@@ -1,5 +1,6 @@
 """Read an immutable analysis bundle using only the Python standard library."""
 from copy import deepcopy
+from nisar.features.reporting.evidence_report import detector_result
 import hashlib
 import json
 from pathlib import Path
@@ -42,24 +43,18 @@ class CachedSample:
             raise ValueError("Cached result does not match its sample settings.")
 
     def describe(self):
-        return {**deepcopy(self.metadata), "available": True, "revision": self.revision,
+        metadata = {k: deepcopy(v) for k, v in self.metadata.items() if k not in ("interpretation_source", "report_presentation")}
+        return {**metadata, "available": True, "revision": self.revision,
                 "preview_url": f"/sample-preview.png?v={self.revision}"}
 
     def result(self):
-        result = deepcopy(self._result)
+        result = detector_result(deepcopy(self._result))
         result["sample"] = self.describe()
         result["images"] = {name: f"/{name}?v={self.revision}" for name in NAMES}
         result["viewer_url"] = f"/change?v={self.revision}"
-        # The portable cache contains the result and images, not live decoder tensors.
-        result.pop("decoder_inputs_url", None)
         context = regional_context(result)
-        if context and isinstance(result.get("evidence_report"), dict):
-            report = result["evidence_report"]
-            report["external_context"] = context
-            report["validation"] = report.get("validation", "").replace(
-                "No external sources were consulted.", "").strip() + (
-                " The original model run did not consult external sources. Regional context was reviewed "
-                "separately and does not validate detector accuracy or physical attribution.")
+        if context:
+            result["evidence_report"]["external_context"] = context
         return result
 
 
@@ -71,7 +66,6 @@ class SampleSession:
         self.dir = sample.directory
         self.result_revision = sample.revision
         self.last_result = sample.result()
-        self.decoder_trace = None
 
 
 def load_sample(root):

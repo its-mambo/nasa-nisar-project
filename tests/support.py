@@ -23,23 +23,10 @@ class FakeSar:
         progress(1, 1)
         return mask, None, int(valid.sum()), int(mask.sum())
 
-    def classify(self, size, pair, mask):
-        return {"status":"insufficient_candidates", "predictions":{}, "reason":"Fixture selection."}
-
-
-class FakeQwen:
-    device = SimpleNamespace(type="cpu")
-    has_adapter = False
-
-    def report(self, *args):
-        return "Test explanation based on measured backscatter."
-
-
 def fixture_demo(directory, size=128):
     options = SimpleNamespace(threshold=.1, max_roi_pixels=1_000_000,
-        batch_size=2, overlap=0, decoder_overview_size=256, serial_vision=True,
-        inspect_decoder_tensors=False, max_delta_db=8, max_upload_gib=1)
-    demo = Demo(directory, options, FakeSar(), FakeQwen())
+        batch_size=2, overlap=0, max_delta_db=8, max_upload_gib=1)
+    demo = Demo(directory, options, FakeSar())
     yy, xx = np.mgrid[:size, :size]
     for date, scale, stamp in (("t0", 1., "2026-06-21T00:00:00Z"),
                                 ("t1", 2., "2026-09-13T00:00:00Z")):

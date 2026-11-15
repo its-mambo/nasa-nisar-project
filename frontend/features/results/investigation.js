@@ -84,7 +84,7 @@
       el("investigationMetrics").replaceChildren(...stop.metrics.map(metric => {
         const wrap = node("div"); wrap.append(node("dt", metric.label), node("dd", metric.value)); return wrap;
       }));
-      el("investigationSource").textContent = `Saved result fields: ${stop.source}. HH and HV are the two radar measurement channels. This guide uses recorded measurements independently of the experimental Qwen commentary.`;
+      el("investigationSource").textContent = `Saved result fields: ${stop.source}. HH and HV are the two radar measurement channels.`;
       el("investigationSourceDetails").open = false;
       el("investigationPrevious").disabled = index === 0;
       el("investigationNext").hidden = index === stops.length - 1;

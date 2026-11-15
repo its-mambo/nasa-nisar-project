@@ -23,7 +23,7 @@ function setStep(n) {
 }
 function setBusy(value) {
   busy = value;
-  for (const el of document.querySelectorAll("form input,form button,#newPair,#loadStep,#areaStep")) el.disabled = value || !modelEnabled;
+  for (const el of document.querySelectorAll("form input,form button,#newPair,#loadStep,#areaStep,#sampleAnalyzeOwn")) el.disabled = value || !modelEnabled;
   $("areaStep").disabled = value || !state || !modelEnabled;
   $("sampleStep").disabled = value;
   if (!value) updateSelection();
@@ -497,7 +497,7 @@ function showAnalysisError(err) {
 $("analysisBack").addEventListener("click",() => showPickTab());
 
 function updateModelProgress(job) {
-  const stages = ["read", "detect", "classify", "report", "render"];
+  const stages = ["read", "detect", "measure", "render"];
   const index = job.status === "complete" ? stages.length : stages.indexOf(job.stage);
   for (const li of document.querySelectorAll("[data-stage]")) {
     const i = stages.indexOf(li.dataset.stage);
@@ -524,7 +524,7 @@ function updateModelProgress(job) {
     ? `About ${duration(estimate.lower_s)}–${duration(estimate.upper_s)} remaining ${estimate.scope === "stage" ? "in this stage" : "for this analysis"} · based on ${estimate.basis}.`
     : job.status === "complete" ? "Analysis complete."
     : "Time estimate unavailable yet · learning from progress and earlier runs on this server.";
-  $("runBtn").textContent = ({read:"Reading images…", detect:"Detecting changes…", classify:"Measuring changes…", report:"Generating explanation…", render:"Preparing results…"})[job.stage] || "Analyzing…";
+  $("runBtn").textContent = ({read:"Reading images…", detect:"Detecting changes…", measure:"Measuring changes…", render:"Preparing results…"})[job.stage] || "Analyzing…";
   status(message);
 }
 

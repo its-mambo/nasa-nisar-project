@@ -1,4 +1,4 @@
-"""SAR detector and trained scene classifier from the NISAR checkpoint."""
+"""Shared ViT encoder and convolutional change detector."""
 
 from contextlib import nullcontext
 import json
@@ -14,8 +14,6 @@ from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 
 TILE_SIZE = 224
-
-BUNDLE_FORMAT = "nisar_inference_weights_v1"
 
 class PatchEmbed(nn.Module):
     def __init__(self,dim,patch_size):
@@ -98,183 +96,26 @@ class ChangeModel(nn.Module):
                 for p in block.parameters(): p.requires_grad_(True)
             for p in self.encoder.norm.parameters(): p.requires_grad_(True)
 
-def load_payload(path):
-    if str(path).endswith(".safetensors"):
-        return load_sar(path)
-    return torch.load(path,map_location='cpu',weights_only=True,mmap=True)
-
-SAR_SAFETENSORS_FORMAT = "nisar_sar_safetensors_v1"
-
-
-def save_sar(payload, path):
-    from safetensors.torch import save_file
-
-    detector = dict(payload["detector"])
-    linear = dict(payload["linear"])
-    tensors = {}
-    for prefix, state in (("detector.model", detector.pop("model")),
-                          ("linear.model", linear.pop("model"))):
-        tensors.update({f"{prefix}.{k}": v for k, v in state.items()})
-    for name in ("center", "scale"):
-        tensors[f"linear.{name}"] = linear.pop(name)
-
-    metadata = dict(detector=detector, linear=linear,
-                    detector_sha256=payload["detector_sha256"])
-    save_file({name: t.detach().cpu().contiguous() for name, t in tensors.items()},
-              str(path), metadata={"format": SAR_SAFETENSORS_FORMAT,
-                                   "config": json.dumps(metadata, allow_nan=False)})
-
-
-def load_sar(path):
+def load_detector(path):
     from safetensors import safe_open
+    from nisar.infrastructure.models.detector_weights import FORMAT, PREFIX, GROUPS
 
     with safe_open(str(path), framework="pt", device="cpu") as f:
         header = f.metadata() or {}
-        if header.get("format") != SAR_SAFETENSORS_FORMAT:
-            raise ValueError("Expected a NISAR SAR safetensors file.")
+        if header.get("format") != FORMAT:
+            raise ValueError("Expected detector-only weights. Run extract_detector.py on your packed model.")
         payload = json.loads(header["config"])
-        keys = set(f.keys())
-        for group in ("detector", "linear"):
-            prefix = f"{group}.model."
-            names = {k for k in keys if k.startswith(prefix)}
-            if not names:
-                raise ValueError(f"Missing {group} state in SAR safetensors.")
-            payload[group]["model"] = {k[len(prefix):]: f.get_tensor(k) for k in names}
-            keys -= names
-        if keys != {"linear.center", "linear.scale"}:
-            raise ValueError("Invalid classifier normalization in SAR safetensors.")
-        for name in ("center", "scale"):
-            payload["linear"][name] = f.get_tensor(f"linear.{name}")
-    return payload
+        names = list(f.keys())
+        if not names or any(not k.startswith(PREFIX) or not k[len(PREFIX):].startswith(GROUPS) for k in names):
+            raise ValueError("Unexpected tensors in detector weights.")
+        payload["detector"]["model"] = {k[len(PREFIX):]: f.get_tensor(k) for k in names}
+        return payload
 
-
-SLOTS = 24
-
-def pool_features(f0, f1, region, valid, patch_size=14):
-    def pooled(z, mask):
-        w = F.avg_pool2d(mask[None, None].float(), patch_size, patch_size)
-        if w.shape[-2:] != z.shape[-2:]:
-            raise ValueError("Mask/encoder patch grid mismatch")
-        return (z.float() * w).sum((-2, -1))[0] / w.sum().clamp_min(1e-12)
-
-    p0, p1 = pooled(f0, region), pooled(f1, region)
-    ctx = valid & ~region
-    c0, c1 = pooled(f0, ctx), pooled(f1, ctx)
-    return torch.stack((p0, p1, p1 - p0, c0, c1, c1 - c0))
 
 def choose_dtype(name, device):
     if name == "auto":
         return torch.bfloat16 if device.type == "cuda" and torch.cuda.is_bf16_supported() else torch.float32
     return {"fp32": torch.float32, "bf16": torch.bfloat16, "fp16": torch.float16}[name]
-
-def verify_run(linear, sha, encoder_width):
-    labels=linear["classes"]
-    if (not isinstance(labels,(list,tuple)) or len(labels)<2
-            or any(not isinstance(label,str) or not label.strip() for label in labels)
-            or len(set(labels))!=len(labels)):
-        raise ValueError("Classifier checkpoint must contain ordered, unique class names.")
-    if linear["encoder_sha256"] != sha:
-        raise ValueError("Linear checkpoint SAR checkpoint hash does not match.")
-    width=SLOTS*encoder_width
-    # The scene trainer saves one scalar RMS scale; per-feature scales also broadcast.
-    if (linear["center"].shape != (width,) or linear["scale"].shape not in ((),(1,),(width,))
-            or linear["model"]["weight"].shape != (len(labels),width)
-            or linear["model"]["bias"].shape != (len(labels),)):
-        raise ValueError("Classifier checkpoint dimensions do not match its labels and encoder features.")
-
-
-def build_prefix(encoder, tiles, size, mean, std, clip, device, dtype, min_pixels, min_valid):
-    try:
-        from scipy import ndimage as ndi
-    except ImportError as exc:
-        raise ValueError("Scene classification requires scipy (pip install scipy).") from exc
-
-    encoder.to(dtype=dtype)
-    crop_count = region_count = 0
-    context_sum = None
-    best = []
-    with torch.inference_mode():
-        for row, col, db0, db1, usable, selected in tiles:
-            if usable.sum() < min_valid * size**2:
-                continue
-            h, w = usable.shape
-            valid = np.zeros((size, size), bool)
-            valid[:h, :w] = usable
-            change = np.zeros_like(valid)
-            change[:h, :w] = selected & usable
-            cc, _ = ndi.label(change, structure=np.ones((3, 3), np.uint8))
-            counts = np.bincount(cc.ravel())
-            regions = [(k, box) for k, box in enumerate(ndi.find_objects(cc), 1)
-                       if counts[k] >= min_pixels]
-            if not regions:
-                continue
-
-            def encode(db):
-                x = np.zeros((2, size, size), np.float32)
-                db = np.clip(db, clip[:, 0, None, None], clip[:, 1, None, None])
-                x[:, :h, :w] = np.where(usable[None], (db - mean) / std, 0.0)
-                return encoder(torch.from_numpy(x)[None].to(device=device, dtype=dtype))
-
-            f0, f1 = encode(db0), encode(db1)
-            valid_t = torch.from_numpy(valid).to(device)
-            crop_sum = None
-            rep = None
-            for k, box in regions:
-                region = cc == k
-                # The training exporter flags invalid pixels in the one-pixel cross
-                # neighborhood; pixels beyond the tile itself are represented by the edge flag.
-                clean = not (ndi.binary_dilation(region) & ~valid).any()
-                edge = any(b.start == 0 or b.stop == size for b in box)
-                rank = (edge, -int(counts[k]), row, col, k)
-                v = pool_features(f0, f1, torch.from_numpy(region).to(device), valid_t,
-                                  patch_size=encoder.patch_size)
-                crop_sum = v.clone() if crop_sum is None else crop_sum.add_(v)
-                if clean and (rep is None or rank < rep[0]):
-                    rep = (rank, v)
-            crop_mean = crop_sum / len(regions)
-            context_sum = crop_mean if context_sum is None else context_sum.add_(crop_mean)
-            crop_count += 1
-            region_count += len(regions)
-            if rep is not None:
-                best.append(rep)
-                best.sort(key=lambda item: item[0])
-                del best[3:]
-            if crop_count % 250 == 0:
-                print(f"  Scene features: {crop_count:,} crops / {region_count:,} regions", flush=True)
-
-        report = {
-            "candidate_regions": region_count,
-            "candidate_crops": crop_count,
-            "representatives": [
-                {"row": rank[2], "col": rank[3], "component": rank[4],
-                 "pixels": -rank[1], "touches_tile_edge": bool(rank[0])}
-                for rank, _ in best
-            ],
-            "min_region_pixels": min_pixels,
-            "min_valid_fraction": min_valid,
-        }
-        if len(best) < 3:
-            return None, report
-        prefix = torch.cat([context_sum / crop_count, *(v for _, v in best)], dim=0).cpu()
-        if prefix.shape != (SLOTS, encoder.dim) or not torch.isfinite(prefix).all():
-            raise ValueError("Unexpected or non-finite scene features.")
-        return prefix, report
-
-def classify(prefix, report, linear):
-    if prefix is None:
-        return {**report, "status": "insufficient_candidates", "predictions": {},
-                "reason": "Need eligible components away from invalid pixels in three distinct crops."}
-    with torch.inference_mode():
-        z = F.normalize((prefix.flatten()[None] - linear["center"]) / linear["scale"])
-        logits = F.linear(z, linear["model"]["weight"], linear["model"]["bias"])
-        if not torch.isfinite(logits).all():
-            raise ValueError("Non-finite linear scene prediction.")
-        scores = logits[0].softmax(-1)
-        labels=linear["classes"]
-        prediction = {"label": labels[int(scores.argmax())],
-                      "scores": dict(zip(labels, scores.tolist(), strict=True))}
-    return {**report, "status": "ok", "predictions": {"linear": prediction},
-            "score_note": "Experimental softmax scores; not calibrated probabilities."}
 
 def scene_dtype(device):
     if device.type == "cuda":
@@ -397,18 +238,24 @@ def inference_device(device_name, amp):
         raise ValueError("Use --amp off on CPU.")
     return device, amp
 
-def build_scene_prefix(encoder, size, read_pair, mask, normalization, device, dtype, min_pixels, min_valid):
-    """Build the trained scene representation on a fixed grid, even with detector overlap."""
-    width, height = size
 
-    def tiles():
-        for row in range(0, height, TILE_SIZE):
-            for col in range(0, width, TILE_SIZE):
-                end_x, end_y = min(width, col + TILE_SIZE), min(height, row + TILE_SIZE)
-                selected = mask[row:end_y, col:end_x]
-                if selected.sum() < min_pixels:
-                    continue
-                (db0, ok0), (db1, ok1) = read_pair((col, row, end_x, end_y))
-                yield row, col, db0, db1, ok0 & ok1, selected
 
-    return build_prefix(encoder, tiles(), TILE_SIZE, *normalization, device, dtype, min_pixels, min_valid)
+class SarModel:
+    def __init__(self, weights, device_name):
+        pack = load_detector(weights)
+        self.detector_sha256 = pack.get("detector_sha256")
+        p, clip = checkpoint_spec(pack["detector"])
+        self.spec = p["stats"]
+        self.device, self.amp = inference_device(device_name, "auto")
+        mean, std = (np.asarray(self.spec[k], dtype=np.float32).reshape(2, 1, 1) for k in ("mean", "std"))
+        if not np.isfinite(mean).all() or not np.isfinite(std).all() or (std <= 0).any():
+            raise ValueError("Invalid SAR normalization.")
+        self.normalization = mean, std, clip
+        self.model = ChangeModel(TILE_SIZE, p["arch"], p["head_width"], grad_checkpoint=False)
+        self.model.load_state_dict(p["model"], strict=True)
+        self.model.to(self.device).eval()
+        self.model.encoder.to(dtype=scene_dtype(self.device))
+
+    def detect(self, size, pair, *, batch_size, overlap, threshold, progress=None):
+        return infer_scene(self.model, size, pair, *self.normalization, self.device, self.amp,
+                           batch_size, overlap, threshold, progress=progress)

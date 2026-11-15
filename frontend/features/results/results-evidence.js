@@ -158,11 +158,9 @@
       ["Detector tile / overlap",`${number(settings.detector_tile_size_px)} / ${number(settings.detector_overlap_px)} model pixels`],
       ["Batch size",number(settings.batch_size)],
       ["Detector checkpoint SHA-256",settings.detector_sha256],
-      ["Classifier candidate regions / crops",`${number(data.candidate_regions)} / ${number(data.candidate_crops)}`],
       ["Input dB clipping",settings.db_clip?.join(" to ")],
       ["Input preparation",settings.preprocessing],
       ["Result time",finite(data.timing_s?.total) ? `${number(data.timing_s.total,1)} s` : "Not recorded"],
-      ["AI interpretation source",data.interpretation?.decoder || data.interpretation?.source || "Not recorded"],
     ]));
     methods.append(node("p","Only jointly valid HH/HV cells at both dates are counted. Flagged area = flagged model cells × cell area; all displayed areas are projected grid areas. Threshold scores are experimental and uncalibrated.","science-note"));
     const full = data.full_scene_context;

@@ -12,9 +12,12 @@
 .app-tabs a:hover { color: #0d5c63; }
 .app-tabs a[aria-current="page"] { color: #0d5c63; border-color: #0d5c63; font-weight: 600; }
 .appbar a:focus-visible { outline: 3px solid #9cceff; outline-offset: 3px; }
+.app-mode { margin-left: auto; font-size: 11px; padding: 5px 9px; border-radius: 5px; background: #e8f4ee; color: #296044; }
+.app-mode[data-mode="sample"] { background: #fff3dc; color: #79551c; }
 @media (max-width: 700px) {
   .appbar { gap: 0 24px; padding: 12px 16px 0; }
   .app-brand { width: 100%; }
   .app-tabs { gap: 22px; }
   .app-tabs a { padding-top: 14px; padding-bottom: 10px; }
+  .app-mode { margin: 0 0 10px auto; }
 }

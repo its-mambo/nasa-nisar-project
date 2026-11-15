@@ -169,10 +169,6 @@ function renderResultsV2(data) {
   setResultText("resultModelPct", `${pct.toFixed(1)}% flagged`);
   setResultText("resultUnflaggedPct", `${(100-pct).toFixed(1)}% not flagged`);
   resultsEl("resultSplitFill").style.width = `${Math.max(0,Math.min(100,pct))}%`;
-  const prediction = data.predictions?.linear;
-  const score = prediction?.scores?.[prediction.label];
-  setResultText("resultModelScore", Number.isFinite(score) ? `${(score*100).toFixed(1)}%` : "—");
-  setResultText("resultModelLabel", prediction ? `${({water_related:"Water-related change",other_change:"Other change"}[prediction.label] || prediction.label)} score` : "No classifier label");
   setResultText("resultCoverage", `${resultArea(roi.projected_rectangle_km2)} km² · EPSG:${roi.epsg ?? "—"}`);
   const sectors = [...(data.spatial_context?.zones || [])].filter(z => z.flagged).sort((a,b) => b.flagged-a.flagged).slice(0,3);
   setResultText("resultSectors", sectors.length ? sectors.map(z => z.zone.replace(/\b\w/g, c => c.toUpperCase())).join(" · ") : "No flagged sectors");
@@ -240,97 +236,104 @@ function inspectReportSector(zone) {
   saveResultPreferences({viewport:Nisar.captureViewport(resultViewport)});
 }
 
-function renderDecoderInputs(root,data) {
-  function element(tag,value) {
-    const el = document.createElement(tag);
-    if (value !== undefined) el.textContent = String(value);
-    return el;
-  }
-  root.replaceChildren(element("p",
-    "Qwen receives clean T0, clean T1, and a standalone detector map on the same grid." +
-    (data.streams.length ? "" : " The run stopped before visual tokens were captured.")));
-  const groups = new Map();
-  for (const panel of data.panels) {
-    if (!groups.has(panel.group)) groups.set(panel.group,[]);
-    groups.get(panel.group).push(panel);
-  }
-  for (const [group,panels] of groups) {
-    const w = data.windows[group-1];
-    root.append(element("h4",w ? "Close-up " + w.number + " · " + w.zone + " · model-grid box [" + w.model_box.join(", ") + "]" : "Selected area overview"));
-    const grid = element("div");
-    grid.className = "decoder-panels";
-    if (!group && data.windows.length) {
-      const label = element("label"), toggle = element("input");
-      toggle.type = "checkbox"; toggle.checked = true;
-      toggle.addEventListener("change",() => grid.classList.toggle("hide-windows",!toggle.checked));
-      label.append(toggle," Mark close-ups on the overview");
-      root.append(label);
-    }
-    for (const panel of panels) {
-      const figure = element("figure"), raster = element("a"), img = element("img");
-      raster.className = "decoder-raster";
-      raster.href = panel.url; raster.target = "_blank"; raster.rel = "noopener";
-      img.src = panel.url; img.alt = panel.label; img.loading = "lazy";
-      [img.width,img.height] = panel.pixels;
-      raster.append(img);
-      if (panel.slot === 0) {
-        for (const close of data.windows) {
-          const box = element("span"), n = element("span",close.number);
-          const [x,y,w,h] = close.panel_rect.map((v,i) => v/panel.pixels[i%2]*100+"%");
-          box.className = "decoder-window";
-          box.style.left = x; box.style.top = y; box.style.width = w; box.style.height = h;
-          box.setAttribute("aria-hidden","true");
-          box.append(n); raster.append(box);
-        }
-      }
-    const source = "Qwen vision";
-      const [first,end] = panel.token_rows;
-      figure.append(raster,element("figcaption",panel.label + " · " + source + " · " + panel.pixels.join(" × ") + " px · " + (end-first) + " visual token slots"));
-      grid.append(figure);
-    }
-    root.append(grid);
-  }
-  if (data.streams.length) {
-    root.append(element("p","Qwen visual streams: " +
-      data.streams.map(s => s.name + " " + s.shape.join(" × ") + " (" + s.dtype + ")").join("; ") + "."));
-  }
-  if (data.tensor_url) {
-    const a = element("a","Download visual token tensors (.npz)");
-    a.href = data.tensor_url; a.download = "decoder-tokens.npz";
-    root.append(a);
-  }
-  data.attempts.forEach((attempt,i) => {
-    const d = element("details");
-    d.append(element("summary","Attempt " + (i+1) + " · prompt (" + attempt.input_token_count + " input tokens) and raw response"));
-    d.append(element("pre",attempt.prompt));
-    d.append(element("p",attempt.reused_t0_t1_features ? "Reused cached T0/T1 features and encoded the standalone map separately." : "Encoded all three panels together."));
-    d.append(element("h4","Raw response"));
-    d.append(element("pre",attempt.raw_answer ?? "Generation did not produce a response."));
-    root.append(d);
-  });
+let evidenceChatRevision = null;
+let evidenceClient = null;
+let evidenceRequest = null;
+let evidenceHasReply = false;
+const newEvidenceClient = () => Array.from(crypto.getRandomValues(new Uint8Array(16)),
+  byte => byte.toString(16).padStart(2, "0")).join("");
+
+function evidenceMessage(label, message) {
+  const log = resultsEl("evidenceChatLog");
+  const line = document.createElement("p");
+  const speaker = document.createElement("strong");
+  speaker.textContent = label + ": ";
+  const body = document.createTextNode(message);
+  line.append(speaker, body);
+  log.append(line);
+  while (log.childElementCount > 24) log.firstElementChild.remove();
+  log.scrollTop = log.scrollHeight;
+  return body;
 }
 
-const inspector = resultsEl("decoderInputs");
-let loadedDecoderUrl;
-inspector.addEventListener("toggle",async () => {
-  const url = inspector.dataset.url;
-  if (!inspector.open || !url || loadedDecoderUrl === url) return;
-  loadedDecoderUrl = url;
-  const root = resultsEl("decoderBody");
-  root.textContent = "Loading decoder inputs…";
+function evidenceBusy(busy) {
+  resultsEl("evidenceSend").disabled = busy;
+  resultsEl("evidenceStop").hidden = !busy;
+}
+
+resultsEl("evidenceStop").addEventListener("click", () => evidenceRequest?.abort());
+window.addEventListener("pagehide", () => evidenceRequest?.abort());
+resultsEl("evidenceChat").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const input = resultsEl("evidenceQuestion");
+  const question = input.value.trim();
+  const data = resultData;
+  const revision = resultRevision();
+  if (!data || !revision || !question || evidenceRequest) return;
+  evidenceMessage("You", question);
+  input.value = "";
+  const request = new AbortController();
+  evidenceRequest = request;
+  evidenceBusy(true);
+  const reply = evidenceMessage("Qwen", "Preparing reply…");
+  const log = resultsEl("evidenceChatLog");
   try {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error("Decoder inputs are no longer available for this result.");
-    const data = await r.json();
-    if (inspector.dataset.url === url) renderDecoderInputs(root,data);
-  } catch (err) {
-    if (inspector.dataset.url === url) {
-      loadedDecoderUrl = undefined;
-      root.textContent = err.message;
+    const response = await fetch("/chat", {
+      method: "POST", signal: request.signal,
+      headers: {"Content-Type": "application/json", "X-Nisar-Demo": "1"},
+      body: JSON.stringify({revision, client: evidenceClient ??= newEvidenceClient(), question}),
+    });
+    if (!response.ok) {
+      const problem = await response.json().catch(() => ({}));
+      if (response.status === 404) throw new Error("This server is missing the chat endpoint. Apply the chat update and restart it.");
+      throw new Error(problem.error || `Chat request failed (HTTP ${response.status}).`);
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let pending = "", answer = "", complete = false;
+    try {
+      while (true) {
+        const part = await reader.read();
+        if (part.done) break;
+        if (request.signal.aborted || evidenceRequest !== request) return;
+        pending += decoder.decode(part.value, {stream: true});
+        const lines = pending.split("\n");
+        pending = lines.pop();
+        for (const line of lines) {
+          if (!line) continue;
+          const item = JSON.parse(line);
+          if (item.error) throw new Error(item.error);
+          if (item.status === "prefill" && evidenceHasReply) {
+            reply.parentElement.before(Object.assign(document.createElement("p"), {
+              textContent: "Qwen started a fresh context for this result.",
+            }));
+          }
+          if (item.delta) reply.data = answer += item.delta;
+          if (item.done) complete = true;
+        }
+        log.scrollTop = log.scrollHeight;
+      }
+    } finally {
+      if (!complete) await reader.cancel().catch(() => {});
+      reader.releaseLock();
+    }
+    if (!complete) throw new Error("The reply was interrupted.");
+    if (!answer.trim()) reply.data = "No text was generated. Try rephrasing your question.";
+    evidenceHasReply = true;
+  } catch (error) {
+    if (evidenceRequest !== request) return;
+    if (request.signal.aborted) {
+      reply.data = reply.data === "Preparing reply…" ? "Reply stopped." : reply.data + " [stopped]";
+    } else {
+      reply.data = (reply.data === "Preparing reply…" ? "" : reply.data + "\n") + error.message;
+    }
+  } finally {
+    if (evidenceRequest === request) {
+      evidenceRequest = null;
+      evidenceBusy(false);
     }
   }
 });
-
 
 function showResultsV2(data) {
   resultsEl("analysisPage").hidden = true;
@@ -338,15 +341,24 @@ function showResultsV2(data) {
   resultsEl("resultsTab").setAttribute("aria-current", "page");
   resultsEl("results").hidden = false;
   renderResultsV2(data);
-  inspector.open = false;
-  inspector.dataset.url = data.decoder_inputs_url || "";
-  inspector.hidden = !data.decoder_inputs_url;
-  loadedDecoderUrl = undefined;
-  resultsEl("decoderBody").replaceChildren();
+  const revision = resultRevision();
+  if (!revision || evidenceChatRevision !== revision) {
+    evidenceRequest?.abort();
+    evidenceRequest = null;
+    evidenceClient = null;
+    evidenceHasReply = false;
+    evidenceBusy(false);
+    resultsEl("evidenceChatLog").replaceChildren();
+    resultsEl("evidenceQuestion").value = "";
+    evidenceChatRevision = revision;
+  }
+  resultsEl("evidenceChatHint").textContent = data.sample
+    ? "Qwen uses the saved images, visible overlay footprint, and measured evidence."
+    : "Qwen uses the selected before and after images, detector mask, and measured evidence.";
   NisarReport.render(data,{onInspectSector:inspectReportSector});
   resultsEl("details").textContent = JSON.stringify(data,null,2);
   resultsEl("resultSampleNotice").hidden = !data.sample;
-  if (data.sample) resultsEl("resultSampleNotice").textContent = "Saved analysis sample · fixed ROI and threshold 0.10 · generated " + new Date(data.sample.generated_at).toLocaleDateString() + ". No models are running. Source filenames and checksums are included in the JSON and report exports.";
+  if (data.sample) resultsEl("resultSampleNotice").textContent = "Saved analysis sample · fixed ROI and threshold 0.10 · generated " + new Date(data.sample.generated_at).toLocaleDateString() + ". The detector was not rerun. Source filenames and checksums are included in the JSON and report exports.";
   const resultsUrl = data.sample ? `/?v=${encodeURIComponent(resultRevision())}#results` : "/#results";
   resultsEl("resultsTab").href = resultsUrl;
   document.querySelector('.app-tabs a[href^="/change"]').href = `/change?v=${encodeURIComponent(resultRevision())}`;

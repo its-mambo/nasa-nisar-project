@@ -101,17 +101,10 @@ def report_sections(r):
             f"the T0 medians were {channels(full['median_t0_hh_hv_db'])}; the T1 medians were "
             f"{channels(full['median_t1_hh_hv_db'])}. These are background statistics; "
             "the detector ran only inside the selected area.")
-    linear = r.get("predictions",{}).get("linear")
-    if linear:
-        name = {"other_change":"Other change","water_related":"Water-related change"}.get(linear["label"],linear["label"])
-        text = f"The linear model assigned “{name}” with a score of {linear['scores'][linear['label']]:.1%}. "
-    else:
-        text = r.get("reason") or "The classifier did not assign a label."
-        text = text.rstrip(".") + ". "
-    text += "Radar flags are observations of backscatter change, not confirmation of a physical cause."
+    text = "Radar flags indicate changed backscatter and do not identify a physical cause."
     if r["warnings"]:
         text += " " + " ".join(r["warnings"])
-    add("Model label and interpretation",text)
+    add("Interpretation limits", text)
     return sections
 
 def scene_observations(zones):

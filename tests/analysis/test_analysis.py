@@ -12,9 +12,7 @@ import unittest
 import h5py
 import numpy as np
 from PIL import Image
-import torch
-
-from nisar.infrastructure.models.change_model import infer_scene
+from importlib.util import find_spec
 from nisar.features.analysis.service import NAMES
 from nisar.features.imagery.rendering import aligned_power
 from nisar.app.paths import FRONTEND_ROOT
@@ -32,7 +30,7 @@ class RemainingTimeTests(unittest.TestCase):
         now[0] = 5
         timing.update("detect",2,10)
         self.assertEqual(timing.estimate(),dict(scope="stage",basis="work completed in this stage",lower_s=12,upper_s=32))
-        timing.update("report")
+        timing.update("measure")
         self.assertIsNone(timing.estimate())
         timing.update("render",0,10)
         now[0] = 9
@@ -41,13 +39,13 @@ class RemainingTimeTests(unittest.TestCase):
         self.assertEqual(timing.profile()["durations"]["render"],4)
 
     def test_history_scaling_and_unrelated_or_overdue_runs(self):
-        history = [{"pixels":100,"durations":dict(read=2,detect=10,classify=3,report=4,render=6)}]
+        history = [{"pixels":100,"durations":dict(read=2,detect=10,measure=7,render=6)}]
         now = [0.]
         timing = RunTiming(pixels=200,history=history,clock=lambda:now[0])
         timing.update("read")
         now[0] = 1
         estimate = timing.estimate()
-        self.assertEqual((estimate["scope"],estimate["lower_s"],estimate["upper_s"]),("analysis",27,72))
+        self.assertEqual((estimate["scope"],estimate["lower_s"],estimate["upper_s"]),("analysis",29,78))
         now[0] = 10
         self.assertIsNone(timing.estimate())
         timing = RunTiming(pixels=10000,history=history,clock=lambda:now[0])
@@ -55,13 +53,16 @@ class RemainingTimeTests(unittest.TestCase):
         self.assertIsNone(timing.estimate())
 
 
-class ConstantDetector(torch.nn.Module):
-    def forward(self, a, b):
-        return torch.full((len(a), 224, 224), torch.logit(torch.tensor(.6)))
-
-
+@unittest.skipUnless(find_spec("torch"), "PyTorch is required for detector inference")
 class DetectorProgressTests(unittest.TestCase):
     def test_threshold_changes_mask_and_reports_all_tiles(self):
+        import torch
+        from nisar.infrastructure.models.change_model import infer_scene
+
+        class ConstantDetector(torch.nn.Module):
+            def forward(self, a, b):
+                return torch.full((len(a), 224, 224), torch.logit(torch.tensor(.6)))
+
         def pair(box):
             x, y, right, bottom = box
             db = np.zeros((2, bottom-y, right-x), np.float32)
@@ -133,7 +134,7 @@ class InferenceOutputTests(unittest.TestCase):
                                 lambda stage, *args: stages.append(stage))
             self.assertEqual(result["threshold"], .1)
             self.assertEqual(result["changed_pixels"], 128**2)
-            self.assertEqual(list(dict.fromkeys(stages)), ["read","detect","classify","report","render"])
+            self.assertEqual(list(dict.fromkeys(stages)), ["read","detect","measure","render"])
             self.assertIn("overlay.png", result["images"])
             self.assertEqual(result["analysis_settings"]["channels"],["HH","HV"])
             self.assertEqual(result["analysis_settings"]["detector_overlap_px"],0)

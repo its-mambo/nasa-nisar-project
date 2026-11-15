@@ -2,7 +2,7 @@
 from statistics import median
 from time import monotonic
 
-STAGES = ("read", "detect", "classify", "report", "render")
+STAGES = ("read", "detect", "measure", "render")
 
 
 class RunTiming:
@@ -45,8 +45,7 @@ class RunTiming:
                 duration = profile["durations"].get(stage)
                 if duration is None:
                     continue
-                # Report generation depends on the visual panels, not the native ROI size.
-                ratio = 1 if stage == "report" else self.pixels/profile["pixels"]
+                ratio = self.pixels/profile["pixels"]
                 # Far larger/smaller jobs are poor comparisons: don't invent an ETA.
                 if .25 <= ratio <= 4:
                     samples.append(duration*ratio)

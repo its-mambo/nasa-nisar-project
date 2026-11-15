@@ -14,6 +14,7 @@
     <a href="/change">Change viewer</a>
     <a id="resultsTab" href="/#results">Results</a>
   </nav>
+  <span id="appMode" class="app-mode" role="status" hidden></span>
 </header>
 
 <div id="pickPage">
@@ -46,6 +47,7 @@
         <p class="sample-question">Use the before-and-after views to investigate where the radar signal changed. Then inspect the detector flags and the measurements behind them.</p>
         <button id="openSample" class="btn btn-primary" type="button" disabled>Explore the case study →</button>
         <p class="sample-access">No file downloads, GPU, or model run needed to explore.</p>
+        <div class="sample-own"><button id="sampleAnalyzeOwn" type="button" class="btn" hidden>Analyze your own GCOV files →</button></div>
         <p class="sample-caution">Radar change is a clue. These detections have not been independently validated as environmental change.</p>
         <p id="sampleStatus" role="status" class="threshold-help"></p>
       </div>
@@ -89,7 +91,6 @@
       </div>
     </details>
     <p id="sampleModeNote" class="sample-mode-note"></p>
-    <div class="sample-own"><button id="sampleAnalyzeOwn" type="button" class="btn" hidden>Analyze your own files →</button></div>
   </section>
   <div class="layout loading-pair" id="pickLayout">
     <div class="main-col">
@@ -266,8 +267,7 @@
         <ol class="model-stages">
           <li data-stage="read">Read and align both images</li>
           <li data-stage="detect">Detect changes</li>
-          <li data-stage="classify">Measure and classify changes</li>
-          <li data-stage="report">Generate the explanation</li>
+          <li data-stage="measure">Measure radar changes</li>
           <li data-stage="render">Prepare result images</li>
         </ol>
         <p id="modelProgressText" role="status" aria-live="polite">Starting analysis…</p>
@@ -329,11 +329,22 @@
         <section class="results-card" aria-labelledby="resultSummaryTitle">
           <h3 id="resultSummaryTitle">Detected change summary</h3>
           <div class="results-kpi"><strong id="resultFlaggedArea">—</strong><span id="resultFlaggedPct"></span></div>
-          <div class="results-metrics"><div class="results-metric"><strong id="resultFlaggedCount">—</strong><span>Flagged model cells</span></div><div class="results-metric score"><strong id="resultModelScore">—</strong><span id="resultModelLabel">Model score</span></div></div>
+          <div class="results-metrics"><div class="results-metric"><strong id="resultFlaggedCount">—</strong><span>Flagged model cells</span></div></div>
           <div class="results-split-labels"><span id="resultModelPct"></span><span id="resultUnflaggedPct"></span></div><div class="results-split"><span id="resultSplitFill"></span></div>
-          <p class="results-caveat">Model score is experimental, not a calibrated probability.</p>
+          <p class="results-caveat">Detector flags indicate changed radar returns. They do not identify a cause.</p>
         </section>
-        <section id="resultReadingGuide" class="results-card map-reading-guide"><h3>Reading this map</h3><p>Blue shows detector-flagged locations, with intensity based on the size of the HH signal change.</p><p>Compare Before and After with the same mask and display settings. Grayscale changes the base image; the mask stays blue.</p><p>Unmarked areas can include weaker detections or missing data. Check usable coverage below.</p></section>
+        <section id="resultReadingGuide" class="results-card map-reading-guide">
+          <h3>Reading this map</h3>
+          <p>Blue marks detector flags; brighter blue indicates a larger HH signal change. Unmarked cells are not necessarily stable.</p>
+          <div id="evidenceChatLog" class="evidence-chat-log" role="log" aria-label="Conversation about this result"></div>
+          <form id="evidenceChat" class="evidence-chat">
+            <label for="evidenceQuestion">Ask about this result</label>
+            <textarea id="evidenceQuestion" rows="2" maxlength="1200" required placeholder="Where were the most changes flagged?" aria-describedby="evidenceChatHint"></textarea>
+            <p id="evidenceChatHint">Live Qwen chat uses the selected before and after images, the change mask, and measured evidence.</p>
+            <button id="evidenceSend" class="results-primary" type="submit">Send</button>
+            <button id="evidenceStop" type="button" hidden>Stop reply</button>
+          </form>
+        </section>
       </div>
     </div>
     <section id="resultExternalContext" class="results-card external-context" aria-label="Independent regional evidence" tabindex="-1" hidden></section>
@@ -346,7 +357,7 @@
           <p id="resultPatternNote" class="results-pattern-note"></p>
         </section>
     <section class="results-science" aria-labelledby="resultScienceTitle">
-      <div class="results-science-head"><h3 id="resultScienceTitle">Evidence &amp; scientific details</h3><a id="resultDownload" class="results-outline" download="change.png">↓ Download PNG</a><a id="resultJson" class="results-outline" download>↓ Measurements JSON</a><a id="resultCsv" class="results-outline" download>↓ Sector CSV</a><button id="resultOpenReport" class="results-primary" type="button">▣ Evidence &amp; interpretation</button></div>
+      <div class="results-science-head"><h3 id="resultScienceTitle">Evidence &amp; scientific details</h3><a id="resultDownload" class="results-outline" download="change.png">↓ Download PNG</a><a id="resultJson" class="results-outline" download>↓ Measurements JSON</a><a id="resultCsv" class="results-outline" download>↓ Sector CSV</a><button id="resultOpenReport" class="results-primary" type="button">▣ Evidence report</button></div>
       <p class="evidence-intro">Check coverage, image comparability, and how the measurements were made before drawing an environmental conclusion.</p>
       <div class="results-detail-grid"><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">◇</span><div><span>Selection coverage</span><strong id="resultCoverage"></strong></div></div><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">▥</span><div><span>Top flagged sectors</span><strong id="resultSectors"></strong></div></div><div class="results-detail"><span class="results-detail-icon" aria-hidden="true">◇</span><div><span>Acquisition geometry</span><strong id="resultGeometry"></strong></div></div></div>
       <div id="scienceWarnings" class="science-warnings" role="status"></div>
@@ -361,14 +372,13 @@
     </section>
   </div>
   <dialog id="resultReportDialog" class="results-report-dialog" aria-labelledby="resultReportTitle">
-    <div class="results-report-head"><h3 id="resultReportTitle">Evidence &amp; interpretation</h3><div class="report-export-actions"><a id="reportMarkdown" class="results-outline" download>↓ Markdown</a><a id="reportText" class="results-outline" download>↓ Plain text</a><button id="resultCloseReport" type="button" aria-label="Close report">×</button></div></div>
+    <div class="results-report-head"><h3 id="resultReportTitle">Evidence report</h3><div class="report-export-actions"><a id="reportMarkdown" class="results-outline" download>↓ Markdown</a><a id="reportText" class="results-outline" download>↓ Plain text</a><button id="resultCloseReport" type="button" aria-label="Close report">×</button></div></div>
     <div class="results-report-body">
       <section class="report-finding" aria-labelledby="reportFindingTitle"><span class="report-eyebrow">1 · Main finding</span><h4 id="reportFindingTitle"></h4><p id="reportFindingNote"></p></section>
       <section class="report-evidence-section" aria-labelledby="reportEvidenceTitle"><h4 id="reportEvidenceTitle">2 · Evidence</h4><div id="reportEvidence" class="report-evidence-chips"></div><div id="reportCharts" class="report-charts"></div></section>
       <section id="reportExternalContext" class="external-context" aria-label="Independent regional evidence" hidden></section>
-      <section aria-labelledby="reportInterpretationTitle"><h4 id="reportInterpretationTitle">3 · Possible explanation</h4><div id="reportInterpretation" class="report-interpretation-grid"></div></section>
-      <section aria-labelledby="reportChecksTitle"><h4 id="reportChecksTitle">4 · Next checks</h4><p class="report-small">Suggested location-level comparisons have not been completed. Reviewed regional sources are shown separately above.</p><div id="reportChecks" class="report-checks"></div></section>
-      <details class="report-technical"><summary>Evidence references, model output &amp; technical details</summary><div id="reportReferences"></div><p id="reportValidation" class="report-small"></p><details id="decoderInputs" hidden><summary>Inspect decoder inputs</summary><div id="decoderBody"></div></details><details><summary>Full analysis data and original model output</summary><pre id="details"></pre></details></details>
+      <section aria-labelledby="reportChecksTitle"><h4 id="reportChecksTitle">3 · Next checks</h4><p class="report-small">Suggested location-level comparisons have not been completed. Reviewed regional sources are shown separately above.</p><div id="reportChecks" class="report-checks"></div></section>
+      <details class="report-technical"><summary>Evidence references &amp; technical details</summary><div id="reportReferences"></div><p id="reportValidation" class="report-small"></p><details><summary>Full analysis data</summary><pre id="details"></pre></details></details>
     </div>
   </dialog>
 </section>

@@ -34,7 +34,7 @@ class RegionalContextTests(unittest.TestCase):
         original = deepcopy(self.sample._result)
         first = self.sample.result()
         self.assertEqual(self.sample._result, original)
-        for field in ("changed_pixels", "threshold", "roi", "interpretation", "paired_sector_deltas"):
+        for field in ("changed_pixels", "threshold", "roi", "paired_sector_deltas"):
             self.assertEqual(first[field], original[field])
         self.assertEqual(first["evidence_report"]["evidence"], original["evidence_report"]["evidence"])
         first["evidence_report"]["external_context"][0]["observations"].clear()
@@ -48,12 +48,12 @@ class RegionalContextTests(unittest.TestCase):
 
     def test_portable_exports_include_context_and_keep_attribution_unresolved(self):
         result = self.sample.result()
-        self.assertEqual(result["evidence_report"]["attribution_status"], "Cause unresolved")
+        self.assertIn("do not confirm", result["evidence_report"]["caution"])
         for format in ("md", "txt"):
             text = render_export(result, format)
             for phrase in ("62.28 km²", "32.45 km²", "22.42 km²", "6 days after Before",
                            "14 days before After", "10 days after After", "Table 3", "Source PDF SHA-256",
-                           "Location-level comparison not completed", "does not validate individual detector flags"):
+                           "Location-level comparison not completed", "do not validate individual flags"):
                 self.assertIn(phrase.lower(), text.lower())
             self.assertNotIn("No external web sources were retrieved", text)
             self.assertNotIn("No external sources were consulted", text)

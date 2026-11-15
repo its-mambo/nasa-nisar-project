@@ -12,6 +12,10 @@
   function configure(capabilities) {
     modelEnabled = capabilities.model_enabled;
     sample = capabilities.sample;
+    el("appMode").hidden = false;
+    el("appMode").dataset.mode = modelEnabled ? "model" : "sample";
+    el("appMode").textContent = modelEnabled ? "Live model mode · GCOV uploads enabled" : "Saved sample mode · uploads unavailable";
+    el("sampleAnalyzeOwn").hidden = !modelEnabled;
     el("sampleStep").disabled = false;
     const available = !!sample?.available;
     el("openSample").disabled = !available;
@@ -36,10 +40,9 @@
     el("samplePreview").hidden = false;
     el("sampleSavedAt").textContent = "Analysis saved " + new Date(sample.generated_at).toLocaleString(undefined, {timeZoneName:"short"}) + ". Source checksums and run provenance are included in the report exports.";
     el("sampleStatus").textContent = "Saved results · fixed dates, area, and threshold. Opening them does not run any models.";
-    el("sampleAnalyzeOwn").hidden = !modelEnabled;
     el("sampleModeNote").textContent = modelEnabled
       ? "Have your own NISAR files? You can also load a pair and choose an area to analyze."
-      : "You’re exploring a saved run. To analyze your own NISAR files, start the app in live model mode on a capable machine.";
+      : "This server is in saved sample mode. To upload your own GCOV files, stop this server and restart with python launch.py --mode model on a capable machine.";
   }
   function show() {
     el("samplePanel").hidden = false;

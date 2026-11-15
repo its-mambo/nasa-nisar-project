@@ -1,4 +1,7 @@
 import json
+import errno
+import io
+from contextlib import redirect_stderr
 from pathlib import Path
 import subprocess
 import sys
@@ -7,7 +10,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from nisar.app.launcher import choose_mode
+from nisar.app.launcher import choose_mode, check_listen_address, main as launch_main
 from nisar.app.paths import FRONTEND_ROOT, PROJECT_ROOT
 from nisar.app.server import create_app
 from nisar.features.analysis.artifacts import NAMES
@@ -47,7 +50,7 @@ class SampleStoreTests(unittest.TestCase):
             after = json.loads((updated.directory / "result.json").read_text())
             self.assertNotEqual(updated.revision, original.revision)
             self.assertEqual(updated.metadata["report_parent_revision"], original.revision)
-            self.assertEqual(after["evidence_report"]["ai"]["status"], "text_fallback")
+            self.assertEqual(after["evidence_report"]["schema_version"], "nisar_evidence_report_v2")
             self.assertEqual((original.directory / "result.json").read_bytes(), original_bytes)
             for name in IMAGE_FILES:
                 self.assertEqual(digest(original.directory / name), digest(updated.directory / name))
@@ -97,6 +100,26 @@ class SampleStoreTests(unittest.TestCase):
         self.assertEqual(choose_mode(lambda _: ""), "sample")
         self.assertEqual(choose_mode(lambda _: "n"), "sample")
         self.assertEqual(choose_mode(lambda _: "Yes"), "model")
+
+    def test_launcher_rejects_an_occupied_port_before_loading_models(self):
+        stderr = io.StringIO()
+        with patch("sys.argv", ["launch.py", "--mode", "model"]), patch(
+                "nisar.app.launcher.socket.create_server", side_effect=OSError(errno.EADDRINUSE, "Address already in use")), redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as raised:
+                launch_main()
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("older saved-sample or live server", stderr.getvalue())
+        self.assertIn("--port 8001", stderr.getvalue())
+
+    def test_port_check_closes_its_probe_and_supports_ipv6(self):
+        import socket
+        with patch("nisar.app.launcher.socket.create_server") as probe:
+            check_listen_address("127.0.0.1", 8000)
+            probe.assert_called_once_with(("127.0.0.1", 8000), family=socket.AF_INET)
+            probe.return_value.__exit__.assert_called_once()
+        with patch("nisar.app.launcher.socket.create_server") as probe:
+            check_listen_address("::1", 8000)
+            probe.assert_called_once_with(("::1", 8000), family=socket.AF_INET6)
 
     def test_sample_startup_does_not_import_model_or_data_libraries(self):
         script = """

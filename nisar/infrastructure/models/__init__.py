@@ -1,1 +1,1 @@
-"""SAR and Qwen runtime adapters and weight conversion."""
+"""SAR change detector and checkpoint extraction."""

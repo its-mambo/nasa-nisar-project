@@ -4,14 +4,16 @@ from io import BytesIO
 from collections import deque
 import asyncio
 import json
+import re
 from pathlib import Path
 import threading
 from time import monotonic
 import traceback
 from uuid import uuid4
 
+from anyio import CancelScope
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from nisar.app.web import register_web_routes
 from nisar.features.analysis.progress_timing import RunTiming
@@ -39,7 +41,7 @@ def call_locked(demo, func):
         return error(500, f"{type(exc).__name__}: {exc}")
 
 
-def create_app(demo, root: Path, names, *, sample=None, model_enabled=True):
+def create_app(demo, root: Path, names, *, sample=None, model_enabled=True, chat=None, chat_unavailable=None):
     app = FastAPI(title="NISAR SAR Change Explorer")
     image_names = set(names)
     # Progress has its own lock: inference holds demo.lock while using the models.
@@ -131,50 +133,6 @@ def create_app(demo, root: Path, names, *, sample=None, model_enabled=True):
         return Response(contents,media_type="text/markdown" if format=="md" else "text/plain",
                         headers={"Content-Disposition":f'attachment; filename="nisar-evidence-report-{v}.{format}"'})
 
-    @app.get("/decoder-inputs")
-    def decoder_inputs(v: str = ""):
-        if saved_revision(v):
-            return error(404, "Live decoder inputs are not included in the portable sample.")
-        with demo.lock:
-            revision, trace = demo.result_revision, demo.decoder_trace
-        if revision is None or v != str(revision):
-            return error(410, "This result is no longer available")
-        if trace is None:
-            return error(404, "No visual decoder inputs for this result")
-        return trace.manifest(revision)
-
-    @app.get("/decoder-tokens.npz")
-    def decoder_tokens(v: str = ""):
-        if saved_revision(v):
-            return error(404, "Decoder tensors are not included in the portable sample.")
-        with demo.lock:
-            revision, trace = demo.result_revision, demo.decoder_trace
-        if revision is None or v != str(revision):
-            return error(410, "This result is no longer available")
-        if trace is None:
-            return error(404, "No visual decoder inputs for this result")
-        if trace.tensor_archive is None:
-            return error(404, "Tensor capture is disabled")
-        return Response(trace.tensor_archive, media_type="application/octet-stream")
-
-    @app.get("/decoder-panel.png")
-    def decoder_panel(v: str = "", i: str = ""):
-        if saved_revision(v):
-            return error(404, "Live decoder inputs are not included in the portable sample.")
-        with demo.lock:
-            revision, trace = demo.result_revision, demo.decoder_trace
-        if revision is None or v != str(revision):
-            return error(410, "This result is no longer available")
-        if trace is None:
-            return error(404, "No visual decoder inputs for this result")
-        try:
-            index = int(i)
-            if not 0 <= index < len(trace.pngs):
-                raise ValueError
-        except ValueError:
-            return error(400, "Invalid decoder panel")
-        return Response(trace.pngs[index], media_type="image/png")
-
     @app.get("/preview-tile.png")
     def preview_tile(v: str = "", mode: str = "", step: str = "", col: str = "", row: str = "", date: str = "t0"):
         if not model_enabled:
@@ -216,6 +174,67 @@ def create_app(demo, root: Path, names, *, sample=None, model_enabled=True):
                 return None
             parts.append(part)
         return b"".join(parts)
+
+    @app.post("/chat")
+    async def ask_chat(request: Request):
+        if request.headers.get("x-nisar-demo") != "1":
+            return error(403, "Open the demo page to submit requests.")
+        if chat is None:
+            return error(503, chat_unavailable or "Qwen chat is not enabled on this server.")
+        raw = await read_limited(request, 8192)
+        try:
+            body = json.loads(raw or b"")
+            revision, client, question = (body[k] for k in ("revision", "client", "question"))
+            if (not isinstance(revision, str) or not re.fullmatch(r"(?:[0-9]{1,20}|sample-[0-9a-f]{16})", revision)
+                    or not isinstance(client, str) or not re.fullmatch(r"[0-9a-f]{32}", client)
+                    or not isinstance(question, str) or not 1 <= len(question.strip()) <= 1200):
+                raise ValueError
+        except (KeyError, TypeError, ValueError):
+            return error(400, "Expected a result revision, a chat session and a question of up to 1,200 characters.")
+
+        from nisar.features.chat.qwen import ChatUnavailable
+
+        def current():
+            return (revision == str(demo.result_revision) and demo.last_result is not None
+                    and getattr(demo, "chat_mask", None) is not None)
+
+        def get_context():
+            from nisar.features.chat.context import snapshot
+            if saved_revision(revision):
+                return snapshot(sample.directory, None, sample.result())
+            with demo.lock:
+                if not current():
+                    raise ChatUnavailable("This result is no longer available. Open the latest result.")
+                return snapshot(demo.dir, demo.chat_mask, demo.last_result)
+
+        def is_current():
+            with demo.lock:
+                return current()
+
+        if not saved_revision(revision) and not await run_in_threadpool(is_current):
+            return error(410, "This result is no longer available. Open the latest result.")
+
+        async def stream():
+            iterator = chat.turn(revision, client, question.strip(), get_context)
+            try:
+                while True:
+                    event = await run_in_threadpool(next, iterator, None)
+                    if event is None:
+                        break
+                    yield json.dumps(event, ensure_ascii=False) + "\n"
+            except ChatUnavailable as exc:
+                yield json.dumps({"error": str(exc)}) + "\n"
+            except Exception:
+                traceback.print_exc()
+                yield json.dumps({"error": "Qwen could not finish this reply. Check the server log."}) + "\n"
+            finally:
+                # On browser disconnect, finish the current model step, then
+                # close the iterator so an incomplete turn releases its cache.
+                with CancelScope(shield=True):
+                    await run_in_threadpool(iterator.close)
+
+        return StreamingResponse(stream(), media_type="application/x-ndjson",
+                                 headers={"X-Accel-Buffering": "no"})
 
     @app.post("/upload/{date}")
     async def upload(date: str, request: Request):

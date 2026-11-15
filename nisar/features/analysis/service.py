@@ -1,6 +1,4 @@
 """Coordinate GCOV pair preparation and selection analysis with loaded models."""
-from concurrent.futures import ThreadPoolExecutor
-import logging
 import math
 from pathlib import Path
 import shutil
@@ -12,10 +10,8 @@ from PIL import Image
 
 from nisar.features.analysis.artifacts import NAMES, PREVIEW_TILE
 from nisar.features.imagery.rendering import aligned_power, limits_for, tone
-from nisar.features.reporting.roi_interpretation import LIMIT, interpret, radar_patterns
 from nisar.features.reporting.roi_report import paired_sector_deltas, report_sections, scene_observations
 from nisar.features.reporting.evidence_report import build_report
-from nisar.features.reporting.roi_visual import DecoderTrace, native_views, native_change_map
 
 
 def medians(z,valid):
@@ -49,9 +45,9 @@ def observe(z0,z1,valid,selected):
 
 
 class Demo:
-    def __init__(self, directory, options, sar, qwen):
+    def __init__(self, directory, options, sar):
         self.dir, self.options, self.spec = Path(directory), options, sar.spec
-        self.sar, self.qwen = sar,qwen
+        self.sar = sar
         spec=sar.spec
         self.frequency = spec["frequency"]
         self.spacing = float(spec["spacing_m"])
@@ -59,9 +55,9 @@ class Demo:
         self.info = None
         self.lock = threading.Lock()
         self.counter = 0
+        self.chat_mask = None
         self.result_revision = None
         self.last_result = None
-        self.decoder_trace = None
         self.local_paths = {}
         self.pending_uploads = {}
 
@@ -217,29 +213,18 @@ class Demo:
             s = np.s_[y0:y1,x0:x1]
             return (z0[:,s[0],s[1]],m0[s]),(z1[:,s[0],s[1]],m1[s])
 
-        pictures,edges=native_views(z0,z1,m0,m1,self.clip,opts.decoder_overview_size)
-        ready=perf_counter()
-        parallel=(not opts.serial_vision and self.sar.device.type==self.qwen.device.type=="cuda"
-                  and self.sar.device!=self.qwen.device)
-        cached_pair=None
-        with ThreadPoolExecutor(max_workers=1) as workers:
-            pending=workers.submit(self.qwen.encode,pictures) if parallel else None
-            update("detect", "Starting the change detector…")
-            mask,_,valid_count,changed=self.sar.detect((mw,mh),pair,batch_size=opts.batch_size,
-                overlap=opts.overlap,threshold=threshold,
-                progress=lambda done,total: update("detect", f"Processed {done:,} of {total:,} image tiles", done, total))
-            update("classify", "Measuring SAR patterns and classifying flagged regions…")
-            result=self.sar.classify((mw,mh),pair,mask)
-            spatial=observe(z0,z1,model_valid,mask)
-            paired=paired_sector_deltas(z0,z1,model_valid,mask,spatial["zones"])
-            pattern_evidence=radar_patterns(z0,z1,model_valid,mask)
-            if pending is not None:
-                try:
-                    cached_pair=pending.result()
-                except (RuntimeError,ValueError,TypeError,AttributeError):
-                    logging.exception("Early Qwen vision failed; using the native three-panel path.")
-        pictures.append(native_change_map(pictures[0].size,edges,mask,model_valid))
-        detected=perf_counter()
+        ready = perf_counter()
+        update("detect", "Starting the change detector…")
+        mask, _, valid_count, changed = self.sar.detect((mw,mh), pair, batch_size=opts.batch_size,
+            overlap=opts.overlap, threshold=threshold,
+            progress=lambda done,total: update("detect", f"Processed {done:,} of {total:,} image tiles", done, total))
+        detected = perf_counter()
+        update("measure", "Measuring paired radar returns…")
+        spatial = observe(z0, z1, model_valid, mask)
+        paired = paired_sector_deltas(z0, z1, model_valid, mask, spatial["zones"])
+        from nisar.features.chat.context import mask_preview
+        chat_mask = mask_preview(mask, model_valid)
+        result = {}
         del pair,z0,z1,m0,m1,model_valid
         a0,a1 = db(p0),db(p1)
         del p0,p1
@@ -263,24 +248,10 @@ class Demo:
                                             median_rtc_gamma_to_sigma_factor_t0_t1=rtc),
                       acquisitions=self.info["acquisitions"],warnings=self.info["warnings"])
         result["report_sections"] = report_sections(result)
-        result["pattern_evidence"] = pattern_evidence
-        trace=DecoderTrace(export_tensors=opts.inspect_decoder_tensors)
-        report_started=perf_counter()
-        update("report", "Generating the explanation from both dates and the detector map…")
-        try:
-            raw=self.qwen.report(pictures,result,trace,cached_pair)
-            if not raw.strip():
-                raise ValueError("Qwen returned an empty caption.")
-            result["interpretation"]=dict(source="visual",summary=raw,limitation=LIMIT,
-                                          decoder="qwen_lora" if self.qwen.has_adapter else "qwen_base")
-        except (RuntimeError,ValueError,TypeError,AttributeError):
-            logging.exception("Qwen interpretation unavailable")
-            result["interpretation"]=interpret(pattern_evidence,result,lambda _: [])
-            result["interpretation"]["visual_note"]="Qwen interpretation unavailable; showing measured evidence."
         result["evidence_report"] = build_report(result)
-        result["timing_s"]={"input_and_render":round(ready-started,3),
-                            "detection_classification_and_early_vision":round(detected-ready,3),
-                            "qwen_report":round(perf_counter()-report_started,3)}
+        result["timing_s"] = {"input_and_alignment":round(ready-started,3),
+                              "detection":round(detected-ready,3),
+                              "measurements":round(perf_counter()-detected,3)}
         # Back-project the coarse binary mask by integer pixel replication, then
         # render native HH dB differences only in flagged, jointly valid pixels.
         update("render", "Rendering the change overlay and preparing your results…", 0, len(NAMES))
@@ -320,12 +291,10 @@ class Demo:
         del t1_hh, overlay
         self.counter += 1
         self.result_revision = self.counter
-        self.decoder_trace = trace if trace is not None and trace.attempts else None
-        if self.decoder_trace is not None:
-            result["decoder_inputs_url"] = f"/decoder-inputs?v={self.counter}"
         result["images"] = {n: f"/{n}?v={self.counter}" for n in NAMES}
         result["viewer_url"] = f"/change?v={self.counter}"
         result["timing_s"]["total"]=round(perf_counter()-started,3)
         # Kept so /result can reopen the Results tab (e.g. from the Change page).
         self.last_result = result
+        self.chat_mask = chat_mask
         return result

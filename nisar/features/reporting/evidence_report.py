@@ -1,19 +1,8 @@
-"""A report contract separating computed evidence from unverified AI claims."""
-import json
+"""Build a report from measured radar evidence and detector output."""
 import math
 import re
 
-SCHEMA_VERSION = "nisar_evidence_report_v1"
-SOURCE_TYPES = {
-    "optical_imagery":"Optical imagery",
-    "additional_radar_date":"Another radar acquisition",
-    "water_records":"Water-level or water-extent records",
-    "land_cover_reference":"Land-cover reference data",
-    "field_observations":"Field observations",
-    "weather_records":"Weather records",
-}
-MEASUREMENT = re.compile(r"[+−-]?\d+(?:\.\d+)?\s*(?:dB|%|km[²2]?|m[²2]?|cells|pixels)(?!\w)",re.I)
-
+SCHEMA_VERSION = "nisar_evidence_report_v2"
 
 def finite(value):
     return isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(value)
@@ -56,114 +45,7 @@ def evidence_catalog(result):
     return evidence
 
 
-def _text(value,limit=350):
-    if not isinstance(value,str) or not value.strip() or len(value)>limit:
-        raise ValueError("Missing or overlong interpretation text")
-    value = " ".join(value.split())
-    if MEASUREMENT.search(value):
-        raise ValueError("AI text repeated a numeric measurement instead of referencing evidence")
-    if re.search(r"https?://|www\.",value,re.I):
-        raise ValueError("AI text invented a URL without a retrieved source record")
-    return value
-
-
-def _keys(value,expected):
-    if not isinstance(value,dict) or set(value) != set(expected):
-        raise ValueError("Unexpected interpretation fields")
-
-
-def _refs(value,known):
-    if (not isinstance(value,list) or not 1<=len(value)<=4
-            or any(not isinstance(ref,str) or ref not in known for ref in value)):
-        raise ValueError("Missing or unknown evidence references")
-    return list(dict.fromkeys(value))
-
-
-def parse_interpretation(raw,catalog):
-    """Check format/references only; this does not validate physical attribution."""
-    raw = raw.strip()
-    if raw.startswith("```") and raw.endswith("```"):
-        raw = re.sub(r"^```(?:json)?\s*","",raw)[:-3].strip()
-    parsed = json.loads(raw)
-    _keys(parsed,["observations","hypothesis","verification"])
-    known = {item["id"] for item in catalog}
-    observations = parsed["observations"]
-    if not isinstance(observations,list) or len(observations)>2:
-        raise ValueError("Expected at most two AI observations")
-    normalized, seen = [], set()
-    for i,item in enumerate(observations,1):
-        _keys(item,["text","evidence_refs"])
-        text = _text(item["text"],280)
-        if text.casefold() in seen:
-            raise ValueError("Repeated observation")
-        seen.add(text.casefold())
-        normalized.append(dict(id=f"ai:observation:{i}",text=text,evidence_refs=_refs(item["evidence_refs"],known)))
-    hypothesis = parsed["hypothesis"]
-    if hypothesis is not None:
-        _keys(hypothesis,["title","explanation","evidence_refs","uncertainties"])
-        uncertainties = hypothesis["uncertainties"]
-        if not isinstance(uncertainties,list) or not 1<=len(uncertainties)<=2:
-            raise ValueError("A hypothesis must state its unresolved assumptions")
-        hypothesis = dict(title=_text(hypothesis["title"],100),explanation=_text(hypothesis["explanation"],350),
-            evidence_refs=_refs(hypothesis["evidence_refs"],known|{o["id"] for o in normalized}),
-            uncertainties=[_text(s,180) for s in uncertainties])
-        if hypothesis["explanation"].casefold() in seen:
-            raise ValueError("Hypothesis repeated an observation")
-    checks = parsed["verification"]
-    if not isinstance(checks,list) or not 1<=len(checks)<=2:
-        raise ValueError("Expected one or two independent verification steps")
-    verification = []
-    for item in checks:
-        _keys(item,["source_type","compare","supports","weakens"])
-        if item["source_type"] not in SOURCE_TYPES:
-            raise ValueError("Unknown independent-source category")
-        verification.append(dict(source_type=item["source_type"],source=SOURCE_TYPES[item["source_type"]],
-            compare=_text(item["compare"],260),supports=_text(item["supports"],200),weakens=_text(item["weakens"],200),
-            consulted=False))
-    return dict(observations=normalized,hypothesis=hypothesis,verification=verification)
-
-
-def plain_text_interpretation(raw, *, allow_hypothesis):
-    """Present existing model sentences without inventing missing structured claims."""
-    raw = raw.strip()
-    if raw.startswith("```") and raw.endswith("```"):
-        raw = re.sub(r"^```(?:json)?\s*", "", raw)[:-3].strip()
-    if len(raw) > 8000:
-        raise ValueError("Overlong model response")
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError:
-        # Broken JSON is not a useful explanation. Genuine prose can be shown as text.
-        if raw.startswith(("{", "[")) or not allow_hypothesis:
-            return None
-        return _text(raw, 5000)
-    if not isinstance(parsed, dict):
-        return None
-    blocks = []
-    observations = parsed.get("observations")
-    if isinstance(observations, list):
-        for item in observations[:2]:
-            if isinstance(item, dict) and isinstance(item.get("text"), str):
-                blocks.append("What Qwen noticed\n" + _text(item["text"], 1000))
-    hypothesis = parsed.get("hypothesis")
-    if allow_hypothesis and isinstance(hypothesis, dict) and isinstance(hypothesis.get("explanation"), str):
-        title = _text(hypothesis["title"], 200) if hypothesis.get("title") else "Possible explanation"
-        blocks.append("Possible explanation · unverified\n" + title + "\n" + _text(hypothesis["explanation"], 1000))
-    checks = parsed.get("verification")
-    if isinstance(checks, list):
-        for item in checks[:2]:
-            if not isinstance(item, dict) or item.get("source_type") not in SOURCE_TYPES:
-                continue
-            lines = ["Suggested check · not consulted: " + SOURCE_TYPES[item["source_type"]]]
-            for key, label in (("compare", "Compare"), ("supports", "Would support"), ("weakens", "Would weaken")):
-                if item.get(key):
-                    lines.append(label + ": " + _text(item[key], 1000))
-            if len(lines) > 1:
-                blocks.append("\n".join(lines))
-    return "\n\n".join(blocks) if blocks else None
-
-
-def build_report(result, *, allow_text_fallback=False):
+def build_report(result):
     evidence = evidence_catalog(result)
     summary = next((item for item in evidence if item["id"]=="detector:summary"),None)
     flags = result.get("changed_pixels")
@@ -171,54 +53,49 @@ def build_report(result, *, allow_text_fallback=False):
                "No model cells were flagged at the selected threshold." if flags == 0 else
                f"The detector flagged {summary['display'].lower()}." if summary else
                "There is not enough jointly valid model data to summarize detector flags.")
-    ai = dict(status="unavailable",observations=[],hypothesis=None,verification=[])
-    raw = (result.get("interpretation") or {}).get("summary")
-    if isinstance(raw,str) and raw.strip():
-        try:
-            ai.update(parse_interpretation(raw,evidence),status="structured")
-        except (ValueError,TypeError,KeyError) as exc:
-            ai["format_note"] = str(exc)
-            # Explicit opt-in for saved samples; live claim validation stays strict.
-            if (allow_text_fallback and (result.get("interpretation") or {}).get("source") == "visual"
-                    and (isinstance(exc, json.JSONDecodeError) or str(exc) == "Unexpected interpretation fields")):
-                try:
-                    text = plain_text_interpretation(raw, allow_hypothesis=not result.get("warnings") and finite(flags) and flags > 0)
-                except (ValueError, TypeError):
-                    text = None
-                if text:
-                    ai.update(status="text_fallback", text=text,
-                              presentation_note="Qwen's original explanation is shown as plain text because it did not match the structured report format. It is unverified: evidence references and uncertainty fields have not passed validation. Use the measured evidence above to assess it; it does not establish a physical cause.")
     warning = bool(result.get("warnings"))
-    if warning or not finite(flags) or flags <= 0:
-        ai["hypothesis"] = None
-    if not ai["verification"]:
-        ai["verification"] = [dict(source_type="optical_imagery",source=SOURCE_TYPES["optical_imagery"],consulted=False,
-            compare="Inspect spatially matched optical images near both acquisition dates at the flagged locations.",
-            supports="A corresponding change in boundaries or surface appearance supports investigating a physical change.",
-            weakens="Unchanged features weaken a feature-specific explanation; consider broader radar-acquisition effects.")]
+    checks = [dict(source="Optical imagery or another radar acquisition",
+                   compare=("Compare the same flagged locations near both dates." if flags else
+                            "Check the same location with independent imagery if a change is suspected."),
+                   supports="A corresponding signal or surface change supports further investigation.",
+                   weakens="No matching change weakens the case for a persistent surface change.")]
     paired = result.get("paired_sector_deltas") or []
     lead = next((row for row in paired if any(finite(v) for v in (row.get("flagged",{}).get("median_delta_hh_hv_db") or []))),None)
     featured = [item["id"] for item in evidence if item["kind"]=="measured" and not item.get("sector")]
     if lead:
         featured.extend(item["id"] for item in evidence if item.get("sector")==lead.get("zone") and item.get("group")=="flagged")
     return dict(schema_version=SCHEMA_VERSION,finding=dict(kind="detector",text=finding,evidence_refs=["detector:summary"] if summary else []),
-        evidence=evidence,featured_evidence=featured[:4],ai=ai,
-        attribution_status="Cause unresolved" if ai["hypothesis"] is None else "Unconfirmed hypothesis",
+        evidence=evidence,featured_evidence=featured[:4],checks=checks,
         caution="Resolve acquisition comparability warnings before physical attribution." if warning else
                 "Radar-signal change and detector flags do not confirm an environmental cause.",
-        validation=("The model explanation is displayed as unverified plain text; structured claims were not validated. No external sources were consulted."
-                    if ai["status"] == "text_fallback" else
-                    "AI output was checked for format and valid references, not independently validated scientifically."),
-        external_context=[],
-        provenance=dict(decoder=(result.get("interpretation") or {}).get("decoder"),threshold=result.get("threshold"),
-                        epsg=(result.get("roi") or {}).get("epsg")))
+        validation="Detector flags are not independently validated ground truth. Suggested checks have not been performed.",
+        external_context=[])
+
+
+def detector_result(result):
+    """Project a legacy saved result onto the detector-only report contract."""
+    result = dict(result)
+    for key in ("interpretation", "decoder_inputs_url", "decoder_profile", "pattern_evidence",
+                "predictions", "candidate_regions", "candidate_crops", "representatives",
+                "reason", "score_note", "min_region_pixels", "min_valid_fraction", "status"):
+        result.pop(key, None)
+    timing = result.get("timing_s")
+    if isinstance(timing, dict):
+        result["timing_s"] = {key: timing[key] for key in ("input_and_alignment", "detection",
+                                "measurements", "total") if key in timing}
+    result["report_sections"] = [section for section in result.get("report_sections", [])
+                                 if section.get("title") != "Model label and interpretation"]
+    result["evidence_report"] = build_report(result)
+    return result
 
 
 def render_export(result,format="md"):
-    """Portable text exports contain the same classified claims and exact values."""
+    """Export measured evidence and detector results."""
     if format not in {"md","txt"}:
         raise ValueError("Choose Markdown or plain text")
     report = result.get("evidence_report") or build_report(result)
+    if report.get("schema_version") != SCHEMA_VERSION:
+        report = {**build_report(result), "external_context": report.get("external_context", [])}
     md = format=="md"
     def escape(text):
         text = str(text)
@@ -228,7 +105,7 @@ def render_export(result,format="md"):
         lines.extend([f"{'#'*level} {text}" if md else text.upper(),""])
     def paragraph(text):
         lines.extend([escape(text),""])
-    heading("Evidence & interpretation",1)
+    heading("Change detection evidence",1)
     acq = result.get("acquisitions") or {}
     paragraph("Before (T0): "+str((acq.get("t0") or {}).get("zeroDopplerStartTime","Not recorded")))
     paragraph("After (T1): "+str((acq.get("t1") or {}).get("zeroDopplerStartTime","Not recorded")))
@@ -264,29 +141,9 @@ def render_export(result,format="md"):
             paragraph("Official source: " + source["url"])
             paragraph(f"Reference image: {source['sensor']}; observation {source['observation_date']}; {source['figure']}.")
             paragraph("Source PDF SHA-256: " + source["sha256"] + "; extracted reference image SHA-256: " + source["image_sha256"])
-    heading("AI explanation · unverified original model text" if report["ai"]["status"] == "text_fallback" else "AI observations · unverified")
-    if report["ai"]["status"] == "text_fallback":
-        paragraph(report["ai"]["presentation_note"])
-        for block in report["ai"]["text"].split("\n\n"):
-            paragraph(block)
-    elif report["ai"]["observations"]:
-        for observation in report["ai"]["observations"]:
-            paragraph(observation["text"]+" Sources: "+", ".join(observation["evidence_refs"]))
-    else:
-        paragraph("A usable structured AI interpretation is unavailable. The measured evidence remains available above.")
-    heading("Possible explanation · "+report["attribution_status"])
-    hypothesis = report["ai"]["hypothesis"]
-    if hypothesis:
-        paragraph(hypothesis["title"]+": "+hypothesis["explanation"])
-        paragraph("Supporting references: "+", ".join(hypothesis["evidence_refs"]))
-        for uncertainty in hypothesis["uncertainties"]:
-            lines.append("- Unresolved: "+escape(uncertainty))
-        lines.append("")
-    else:
-        paragraph("The available evidence does not establish a specific physical cause.")
     paragraph(report["caution"])
     heading("Next checks · recommended sources, not consulted")
-    for check in report["ai"]["verification"]:
+    for check in report["checks"]:
         paragraph(check["source"]+": "+check["compare"])
         paragraph("Would support: "+check["supports"])
         paragraph("Would weaken: "+check["weakens"])
@@ -299,8 +156,7 @@ def render_export(result,format="md"):
             paragraph(f"{date.upper()} source: {source['path']}; SHA-256: {source['sha256']}")
     for label,value in (("Threshold",result.get("threshold")),("Map reference",f"EPSG:{roi.get('epsg','Not recorded')}"),
                         ("Model cell spacing (m)",roi.get("model_spacing_m")),("T0 pixel box",roi.get("t0_pixel_box")),
-                        ("Detector checkpoint SHA-256",(result.get("analysis_settings") or {}).get("detector_sha256")),
-                        ("Interpretation decoder",report["provenance"].get("decoder"))):
+                        ("Detector checkpoint SHA-256",(result.get("analysis_settings") or {}).get("detector_sha256"))):
         lines.append(f"- {label}: {escape(value if value is not None else 'Not recorded')}")
     lines.append("")
     for warning in result.get("warnings") or []:
