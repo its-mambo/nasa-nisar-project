@@ -23,7 +23,7 @@ function setStep(n) {
 }
 function setBusy(value) {
   busy = value;
-  for (const el of document.querySelectorAll("form input,form button,#newPair,#loadStep,#areaStep,#sampleAnalyzeOwn")) el.disabled = value || !modelEnabled;
+  for (const el of document.querySelectorAll("#pickPage form input,#pickPage form button,#newPair,#loadStep,#areaStep,#sampleAnalyzeOwn")) el.disabled = value || !modelEnabled;
   $("areaStep").disabled = value || !state || !modelEnabled;
   $("sampleStep").disabled = value;
   if (!value) updateSelection();

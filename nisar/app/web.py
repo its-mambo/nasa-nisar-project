@@ -19,6 +19,7 @@ STATIC_FILES = {
     "change.js": ("features/change_viewer/change.js", "text/javascript"),
     "change.css": ("features/change_viewer/change.css", "text/css"),
     "results.js": ("features/results/results.js", "text/javascript"),
+    "markdown-it.min.js": ("shared/vendor/markdown-it.min.js", "text/javascript"),
     "investigation.js": ("features/results/investigation.js", "text/javascript"),
     "external-context.js": ("features/results/external-context.js", "text/javascript"),
     "reference-june-2026.jpg": ("features/results/reference/landsat-june-2026.jpg", "image/jpeg"),

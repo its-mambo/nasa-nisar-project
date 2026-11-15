@@ -240,20 +240,36 @@ let evidenceChatRevision = null;
 let evidenceClient = null;
 let evidenceRequest = null;
 let evidenceHasReply = false;
+const evidenceMarkdown = window.markdownit({html: false, breaks: true});
 const newEvidenceClient = () => Array.from(crypto.getRandomValues(new Uint8Array(16)),
   byte => byte.toString(16).padStart(2, "0")).join("");
 
 function evidenceMessage(label, message) {
   const log = resultsEl("evidenceChatLog");
-  const line = document.createElement("p");
+  const line = document.createElement("div");
+  line.className = "evidence-message";
   const speaker = document.createElement("strong");
-  speaker.textContent = label + ": ";
-  const body = document.createTextNode(message);
+  speaker.className = "evidence-speaker";
+  speaker.textContent = label;
+  const body = document.createElement("div");
+  body.className = "evidence-message-body";
+  if (label === "Qwen") body.innerHTML = evidenceMarkdown.render(message);
+  else {
+    body.classList.add("evidence-question");
+    body.textContent = message;
+  }
   line.append(speaker, body);
   log.append(line);
   while (log.childElementCount > 24) log.firstElementChild.remove();
   log.scrollTop = log.scrollHeight;
   return body;
+}
+
+function renderEvidenceReply(reply, text) {
+  const log = resultsEl("evidenceChatLog");
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 48;
+  reply.innerHTML = evidenceMarkdown.render(text);
+  if (atBottom) log.scrollTop = log.scrollHeight;
 }
 
 function evidenceBusy(busy) {
@@ -263,6 +279,13 @@ function evidenceBusy(busy) {
 
 resultsEl("evidenceStop").addEventListener("click", () => evidenceRequest?.abort());
 window.addEventListener("pagehide", () => evidenceRequest?.abort());
+resultsEl("evidenceQuestion").addEventListener("keydown", event => {
+  if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+  event.preventDefault();
+  if (!event.repeat && !evidenceRequest) {
+    resultsEl("evidenceChat").requestSubmit(resultsEl("evidenceSend"));
+  }
+});
 resultsEl("evidenceChat").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = resultsEl("evidenceQuestion");
@@ -276,7 +299,7 @@ resultsEl("evidenceChat").addEventListener("submit", async (event) => {
   evidenceRequest = request;
   evidenceBusy(true);
   const reply = evidenceMessage("Qwen", "Preparing reply…");
-  const log = resultsEl("evidenceChatLog");
+  let answer = "";
   try {
     const response = await fetch("/chat", {
       method: "POST", signal: request.signal,
@@ -290,7 +313,7 @@ resultsEl("evidenceChat").addEventListener("submit", async (event) => {
     }
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let pending = "", answer = "", complete = false;
+    let pending = "", complete = false;
     try {
       while (true) {
         const part = await reader.read();
@@ -308,24 +331,30 @@ resultsEl("evidenceChat").addEventListener("submit", async (event) => {
               textContent: "Qwen started a fresh context for this result.",
             }));
           }
-          if (item.delta) reply.data = answer += item.delta;
+          if (item.delta) answer += item.delta;
           if (item.done) complete = true;
         }
-        log.scrollTop = log.scrollHeight;
+        if (answer) renderEvidenceReply(reply, answer);
       }
     } finally {
       if (!complete) await reader.cancel().catch(() => {});
       reader.releaseLock();
     }
     if (!complete) throw new Error("The reply was interrupted.");
-    if (!answer.trim()) reply.data = "No text was generated. Try rephrasing your question.";
+    if (!answer.trim()) renderEvidenceReply(reply, "No text was generated. Try rephrasing your question.");
     evidenceHasReply = true;
   } catch (error) {
     if (evidenceRequest !== request) return;
     if (request.signal.aborted) {
-      reply.data = reply.data === "Preparing reply…" ? "Reply stopped." : reply.data + " [stopped]";
+      renderEvidenceReply(reply, answer || "Reply stopped.");
     } else {
-      reply.data = (reply.data === "Preparing reply…" ? "" : reply.data + "\n") + error.message;
+      renderEvidenceReply(reply, answer || error.message);
+    }
+    if (answer) {
+      const status = document.createElement("p");
+      status.className = "evidence-reply-status";
+      status.textContent = request.signal.aborted ? "Reply stopped." : error.message;
+      reply.after(status);
     }
   } finally {
     if (evidenceRequest === request) {

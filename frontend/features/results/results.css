@@ -313,14 +313,43 @@
 }
 
 
-.evidence-chat { display:grid; gap:8px; margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.evidence-chat-panel { margin:20px 0; }
+.evidence-chat-heading { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px 16px; }
+.evidence-chat-heading h3 { margin:0; }
+.evidence-chat-heading span, #evidenceChatHint { color:var(--muted); font-size:12px; }
+.evidence-chat { display:grid; gap:8px; padding-top:16px; border-top:1px solid var(--line); }
 .evidence-chat label { font-size:13px; font-weight:650; }
-.evidence-chat textarea { width:100%; box-sizing:border-box; resize:vertical; padding:8px; font:inherit; border:1px solid var(--line); border-radius:6px; color:var(--ink); }
+.evidence-chat textarea { width:100%; box-sizing:border-box; resize:vertical; padding:12px; font:inherit; border:1px solid var(--line); border-radius:6px; color:var(--ink); }
 .evidence-chat textarea:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
-.evidence-chat p { margin:0; font-size:11px; }
-.evidence-chat button { justify-self:end; }
-.evidence-chat-log { max-height:180px; overflow:auto; overflow-wrap:anywhere; }
-.evidence-chat-log p { margin:6px 0; }
+.evidence-chat-actions { display:flex; justify-content:flex-end; gap:8px; }
+.evidence-keyboard-hint { margin:0; color:var(--muted); font-size:12px; }
+.evidence-chat-log { max-height: min(65dvh, 640px); overflow:auto; overflow-wrap:anywhere; overscroll-behavior:contain; scrollbar-gutter:stable; }
+.evidence-chat-log:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+.evidence-message { padding:20px 0; border-top:1px solid var(--line); }
+.evidence-speaker { display:block; margin-bottom:8px; color:var(--teal); font-size:12px; }
+.evidence-message-body { max-width:95ch; font-size:15px; line-height:1.7; }
+.evidence-question { white-space:pre-wrap; }
+.evidence-message-body p { margin:0 0 .8em; }
+.evidence-message-body > :last-child { margin-bottom:0; }
+.evidence-message-body h1, .evidence-message-body h2, .evidence-message-body h3, .evidence-message-body h4, .evidence-message-body h5, .evidence-message-body h6 { margin:1.2em 0 .5em; line-height:1.35; letter-spacing:normal; }
+.evidence-message-body h1 { font-size:23px; }
+.evidence-message-body h2 { font-size:20px; }
+.evidence-message-body h3 { font-size:18px; }
+.evidence-message-body h4, .evidence-message-body h5, .evidence-message-body h6 { font-size:16px; }
+.evidence-message-body > :first-child { margin-top:0; }
+.evidence-message-body ul, .evidence-message-body ol { padding-left:1.6em; margin:.6em 0 1em; }
+.evidence-message-body li { margin:.3em 0; }
+.evidence-message-body blockquote { margin:1em 0; padding:4px 16px; border-left:3px solid var(--teal); color:var(--muted); }
+.evidence-message-body code { background:#eef3f3; border-radius:4px; padding:.15em .35em; font-size:.9em; }
+.evidence-message-body pre { max-width:100%; white-space:pre; overflow:auto; overflow-wrap:normal; }
+.evidence-message-body pre code { padding:0; background:none; }
+.evidence-message-body table { display:block; max-width:100%; overflow:auto; border-collapse:collapse; margin:1em 0; font-size:14px; }
+.evidence-message-body th, .evidence-message-body td { border:1px solid var(--line); padding:8px 12px; text-align:left; }
+.evidence-message-body th { background:#eef3f3; }
+.evidence-message-body a { color:var(--teal); text-decoration:underline; }
+.evidence-message-body img { max-width:100%; height:auto; }
+.evidence-message-body hr { border:0; border-top:1px solid var(--line); margin:1.2em 0; }
+.evidence-reply-status { color:var(--muted); font-size:12px; }
 .report-check-card { min-width:0; padding:14px; background:#f8f9fc; border:1px solid var(--line); border-radius:8px; font-size:13px; }
 .report-check-card h5 { font-size:15px; margin:8px 0; }
 .report-check-card p { margin:8px 0; }

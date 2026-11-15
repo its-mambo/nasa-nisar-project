@@ -336,17 +336,20 @@
         <section id="resultReadingGuide" class="results-card map-reading-guide">
           <h3>Reading this map</h3>
           <p>Blue marks detector flags; brighter blue indicates a larger HH signal change. Unmarked cells are not necessarily stable.</p>
-          <div id="evidenceChatLog" class="evidence-chat-log" role="log" aria-label="Conversation about this result"></div>
-          <form id="evidenceChat" class="evidence-chat">
-            <label for="evidenceQuestion">Ask about this result</label>
-            <textarea id="evidenceQuestion" rows="2" maxlength="1200" required placeholder="Where were the most changes flagged?" aria-describedby="evidenceChatHint"></textarea>
-            <p id="evidenceChatHint">Live Qwen chat uses the selected before and after images, the change mask, and measured evidence.</p>
-            <button id="evidenceSend" class="results-primary" type="submit">Send</button>
-            <button id="evidenceStop" type="button" hidden>Stop reply</button>
-          </form>
         </section>
       </div>
     </div>
+    <section class="results-card evidence-chat-panel" aria-labelledby="evidenceChatTitle">
+      <div class="evidence-chat-heading"><h3 id="evidenceChatTitle">Ask about this result</h3><span>AI interpretation · Qwen</span></div>
+      <p id="evidenceChatHint">Qwen uses the selected before and after images, detector mask, and measured evidence.</p>
+      <div id="evidenceChatLog" class="evidence-chat-log" role="log" aria-label="Conversation about this result" tabindex="0"></div>
+      <form id="evidenceChat" class="evidence-chat">
+        <label for="evidenceQuestion">Your question</label>
+        <textarea id="evidenceQuestion" rows="3" maxlength="1200" required placeholder="Where were the most changes flagged?" aria-describedby="evidenceChatHint evidenceKeyboardHint"></textarea>
+        <p id="evidenceKeyboardHint" class="evidence-keyboard-hint">Enter to send · Shift+Enter for a new line</p>
+        <div class="evidence-chat-actions"><button id="evidenceStop" class="results-outline" type="button" hidden>Stop reply</button><button id="evidenceSend" class="results-primary" type="submit">Send</button></div>
+      </form>
+    </section>
     <section id="resultExternalContext" class="results-card external-context" aria-label="Independent regional evidence" tabindex="-1" hidden></section>
         <section class="results-card results-pattern-section" aria-labelledby="resultPatternTitle">
           <div class="results-pattern-head"><h3 id="resultPatternTitle">How the radar signal changed</h3><b>MEASURED</b></div>
@@ -389,6 +392,7 @@
 <script src="/external-context.js"></script>
 <script src="/report-view.js"></script>
 <script src="/investigation.js"></script>
+<script src="/markdown-it.min.js"></script>
 <script src="/results.js"></script>
 <script src="/sample.js"></script>
 <script src="/pick.js"></script>
